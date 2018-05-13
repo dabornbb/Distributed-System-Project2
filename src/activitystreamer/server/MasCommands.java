@@ -1,15 +1,18 @@
 package activitystreamer.server;
 
 import java.util.ArrayList;
+import java.sql.Timestamp;
 
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
 
 import activitystreamer.util.Commands;
 import activitystreamer.util.Settings;
+
 class MasCommands {
 	static ArrayList<User> registeredUsers = new ArrayList<User>();
 //	static ArrayList<ServerLoad> serverLoads = new ArrayList<ServerLoad>();
+	private static Timestamp time = null;
 	
 	public static boolean Authenticate(Connection con, JSONObject obj) {
 		if (ServerList.isNewServer(con)) {
@@ -17,8 +20,9 @@ class MasCommands {
 				String serversecret = obj.get("secret").toString();
 				if (serversecret.equals(Settings.getSecret())) {
 					ServerList.addServer(con);
-					System.out.println("[CONTACT LIST] "+ServerList.serverList.size());
-					Commands.AuthenSuccess(con);
+					time = new Timestamp(System.currentTimeMillis());
+					System.out.println(time.getTime());
+					Commands.AuthenSuccess(con, time);
 					return false;
 				}else {
 					Commands.authenFail(con, serversecret);
@@ -42,12 +46,12 @@ class MasCommands {
 		try {
 			String username=obj.get("username").toString();
 			if (isRegistered(username)) {
-				Commands.registerFail(con, username);
+				Commands.registerFail(con, obj);
 			}else {
 				String secret = obj.get("secret").toString();
 				User user = new User(username, secret);
 				registeredUsers.add(user);
-				Commands.registerSuccess(con, username, secret);
+				Commands.registerSuccess(con, obj);
 			}
 			
 		}catch(NullPointerException e) {
@@ -65,7 +69,7 @@ class MasCommands {
 		try {
 			String username=obj.get("username").toString();
 			if (!isRegistered(username)) {
-				Commands.loginFail(con, "User not registered in the system");
+				Commands.loginFail(con, "User not registered in the system",obj);
 			}else {
 				String secret;
 
@@ -81,16 +85,17 @@ class MasCommands {
 					// at successful login, run redirection
 					ServerLoad server = ServerList.redirectTo(con);
 					if (server!=null) {
-						Commands.redirect(con, server.getHostname(), server.getPort());
+						Commands.redirect(con, server.getHostname(), server.getPort(),obj);
 					}else {
-						Commands.loginSuccess(con, username);
+						time = new Timestamp(System.currentTimeMillis());
+						Commands.loginSuccess(con, obj);
 					}
 				}else {
-					Commands.loginFail(con, "Attempt to login with wrong secret");
+					Commands.loginFail(con, "Attempt to login with wrong secret", obj);
 				}
 			}
 		}catch(NullPointerException e) {
-			Commands.invalidMsg(con, e+": Incomplete Login Information");
+			Commands.loginFail(con, e+": Incomplete Login Information",obj);
 		}
 		return false;
 	}
@@ -141,6 +146,10 @@ class MasCommands {
 			}
 		}
 		return null;
+	}
+	
+	public static void deleteServer(Connection con) {
+		ServerList.deleteServer(con);
 	}
 }
 

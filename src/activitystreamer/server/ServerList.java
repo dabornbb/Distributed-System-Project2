@@ -118,4 +118,12 @@ public class ServerList {
 	public static int length() {
 		return serverList.size();
 	}
+	
+	public static Connection getCon(String id) {
+		for (ServerLoad sl:serverList) {
+			if (sl.getId().equals(id))
+				return sl.getCon();
+		}
+		return null;
+	}
 }
