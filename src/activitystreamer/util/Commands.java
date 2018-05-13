@@ -5,8 +5,12 @@ import activitystreamer.server.Connection;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
+import java.sql.Timestamp;
+
 public class Commands {
 
+	private static Timestamp time;
 	private static JSONObject sendObj;
 	//write message and automatically shut down connections
 	public static boolean invalidMsg(Connection con,String str) {
@@ -35,16 +39,21 @@ public class Commands {
 	}
 
 	public static void loginSuccess(Connection con) {
+		time = new Timestamp(System.currentTimeMillis());
 		sendObj = new JSONObject();
 		sendObj.put("command", "LOGIN_SUCCESS");
 		sendObj.put("info", "login anonymous");
+		sendObj.put("logTime", time.getTime());
 		con.writeMsg(sendObj.toJSONString());
 	}
 	
+	
 	public static void loginSuccess(Connection con,String username) {
+		time = new Timestamp(System.currentTimeMillis());
 		sendObj = new JSONObject();
 		sendObj.put("command", "LOGIN_SUCCESS");
 		sendObj.put("info","successfully login as user "+ username);
+		sendObj.put("logTime", time.getTime());
 		con.writeMsg(sendObj.toJSONString());
 	}
 	
@@ -87,5 +96,19 @@ public class Commands {
 		con.writeMsg(sendObj.toJSONString());
 	}
 	
+	public static void AuthenSuccess(Connection con) {
+		sendObj = new JSONObject();
+		time = new Timestamp(System.currentTimeMillis());
+		sendObj.put("command", "AUTHENTICATION_SUCCESS");
+		sendObj.put("time", time.getTime());
+		con.writeMsg(sendObj.toJSONString());
+	}
 
+	public static void redirect(Connection con, String hostname, int port) {
+		JSONObject sendObj= new JSONObject();
+		sendObj.put("command", "REDIRECT");
+		sendObj.put("hostname", hostname);
+		sendObj.put("port", port);
+		con.writeMsg(sendObj.toJSONString());
+	}
 }

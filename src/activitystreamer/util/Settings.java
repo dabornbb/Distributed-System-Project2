@@ -18,6 +18,8 @@ public class Settings {
 	private static String secret = null;
 	private static String username = "anonymous";
 	private static String serverId;
+	private static String serverType="c"; // default as child server
+	
 	
 	public static int getLocalPort() {
 		return localPort;
@@ -31,6 +33,15 @@ public class Settings {
 			
 		}
 	}
+	
+	public static String getServerType() {
+		return serverType;
+	}
+	
+	public static void setServerType(String type) {
+		Settings.serverType = type;
+	}
+	
 	
 	public static int getRemotePort() {
 		return remotePort;

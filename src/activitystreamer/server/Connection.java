@@ -69,7 +69,13 @@ public class Connection extends Thread {
 		try {
 			String data;
 			while(!term && (data = inreader.readLine())!=null){
-				term=Control.getInstance().process(this,data);
+				if (Settings.getServerType().equals("c")) {
+					term=Control.getInstance().processChild(this,data);
+				}else if (Settings.getServerType().equals("m")){
+					term=Control.getInstance().processMas(this,data);
+				}else if (Settings.getServerType().equals("b")){
+//					term=Control.getInstance().processBackUp(this,data);
+				}
 			}
 			log.debug("connection closed to "+Settings.socketAddress(socket));
 			Control.getInstance().connectionClosed(this);

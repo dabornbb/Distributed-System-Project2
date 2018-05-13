@@ -61,7 +61,7 @@ public class ServerCom {
 	public static boolean updateAnnouce(Connection con,JSONObject obj) {
 		String id = obj.get("id").toString();
 		if (!ServerList.isNewServer(id)) {
-			ServerList.update(id, obj);
+			ServerList.update(id, obj,con);
 			return true;
 		}else if(!ServerList.isNewServer(con)) {
 			ServerList.update(con, obj);

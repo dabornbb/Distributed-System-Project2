@@ -8,16 +8,12 @@ import java.util.ArrayList;
 public class ServerList {
 	public static ArrayList<ServerLoad> serverList= new ArrayList<ServerLoad>();
 	private static int serverat = 0;
-	public static int thisLoad;
 	
 	
-	public static void update(String id, JSONObject obj) {
+	public static void update(String id, JSONObject obj,Connection con) {
 		
 		if (!isNewServer(id)) {
-			try {
-				String ID = obj.get("id").toString();
-				serverList.get(serverat).setId(ID);
-			}catch(Exception e) {}
+			serverList.get(serverat).setCon(con);
 			int load,port;
 			try {
 				load = Integer.parseInt(obj.get("load").toString());
@@ -100,15 +96,26 @@ public class ServerList {
 		if (!isNewServer(con)) serverList.remove(serverat);
 	}
 
-	public static ServerLoad redirectTo() {
-		thisLoad = Login.onlineUsers.size();
-		for (ServerLoad server: serverList) {
-			System.out.println("[REDIRECTION]"+server.getHostname()+":"+server.getLoad());
-			if ((thisLoad-2)>=server.getLoad()) {
-				return server;
+	public static ServerLoad redirectTo(Connection con) {
+		int thisload = getLoad(con);
+		for (ServerLoad sl:serverList) {
+			if (sl.getLoad()<=(thisload-2)) {
+				return sl;
 			}
-			serverat++;
 		}
 		return null;
+	}
+	
+	private static int getLoad(Connection con) {
+		for (ServerLoad sl: serverList) {
+			if (sl.getCon().equals(con)) {
+				return sl.getLoad();
+			}
+		}
+		return -1;
+	}
+	
+	public static int length() {
+		return serverList.size();
 	}
 }

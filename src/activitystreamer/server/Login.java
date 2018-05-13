@@ -10,7 +10,7 @@ public class Login {
 	static ArrayList<User> registeredUsers = new ArrayList<User>();
 	static ArrayList<OnlineUser> onlineUsers = new ArrayList<OnlineUser>();
 	static ArrayList<Connection> connections = new ArrayList<Connection>();
-	public static boolean loginUser(Connection con, JSONObject obj) {
+/*	public static boolean loginUser(Connection con, JSONObject obj) {
 		//not checking if the user is login with another client, uses connections as reference
 		if (isLogin(con)) {
 			return Commands.invalidMsg(con,"User already login, logging out...");
@@ -81,7 +81,7 @@ public class Login {
 		return false;
 		
 	}
-
+*/
 	private static void logAnonymous(Connection con) {
 		System.out.println("Log in anonymous.");
 		Commands.loginSuccess(con);
