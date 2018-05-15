@@ -35,7 +35,7 @@ public class ServerLoad {
 		this.hostname = hostname;
 	}
 	
-	private void setCon(Connection con) {
+	public void setCon(Connection con) {
 		this.con = con;
 	}
 	
@@ -57,5 +57,13 @@ public class ServerLoad {
 	
 	public Connection getCon() {
 		return con;
+	}
+	
+	public JSONObject toJSON() {
+		JSONObject obj = new JSONObject();
+		obj.put("ID", this.id);
+		obj.put("hostname", this.hostname);
+		obj.put("port", this.port);
+		return obj;
 	}
 }

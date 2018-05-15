@@ -40,7 +40,6 @@ public class Connection extends Thread {
 	 */
 	public boolean writeMsg(String msg) {
 		if(open){
-
 			outwriter.println(msg);
 			outwriter.flush();
 			return true;
@@ -51,33 +50,51 @@ public class Connection extends Thread {
 	
 	public void closeCon(){
 		if(open){
-			log.info("closing connection "+Settings.socketAddress(socket));
 			try {
 				term=true;
-				inreader.close();
+//				inreader.close();
 				out.close();
 			} catch (IOException e) {
 				// already closed?
 				log.error("received exception closing the connection "+Settings.socketAddress(socket)+": "+e);
 			}
 		}
+		log.info("reaches end");
 	}
 	
 	
 	public void run(){
-		System.out.println("accessed connection.run");
-		try {
 			String data;
-			while(!term && (data = inreader.readLine())!=null){
-				term=Control.getInstance().process(this,data);
+
+			if (Settings.getServerType().equals("c")) {
+				try {
+					while(!term && (data = inreader.readLine())!=null){
+						term=Control.getInstance().processChild(this,data);
+					}
+					log.debug("connection closed to "+Settings.socketAddress(socket));
+					Control.getInstance().removeChildConnectionList(this);
+					in.close();
+				}catch (IOException e) {
+					log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
+					Control.getInstance().removeChildConnectionList(this);
+				}
+			}else if (Settings.getServerType().equals("m")){
+				try {
+					while(!term && (data = inreader.readLine())!=null){
+						term=Control.getInstance().processMas(this,data);
+					}
+					log.debug("connection closed to "+Settings.socketAddress(socket));
+					Control.getInstance().removeMasterConnectionList(this);
+					in.close();
+				}catch (IOException e) {
+					log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
+					Control.getInstance().removeMasterConnectionList(this);
+				}
+					
+			}else if (Settings.getServerType().equals("b")){
+//				term=Control.getInstance().processBackUp(this,data);
 			}
-			log.debug("connection closed to "+Settings.socketAddress(socket));
-			Control.getInstance().connectionClosed(this);
-			in.close();
-		} catch (IOException e) {
-			log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
-			Control.getInstance().connectionClosed(this);
-		}
+
 		open=false;
 	}
 	
