@@ -84,9 +84,14 @@ public class Server {
 				help(options);
 			}
 		}
-
+		/*
 		if(cmd.hasOption("t")){
 			Settings.setServerType(cmd.getOptionValue("t"));
+		}
+		*/
+		// Set master server
+		if(!cmd.hasOption("rh") && !cmd.hasOption("rp") ){
+			Settings.setServerType("m");
 		}
 		
 		if(cmd.hasOption("lh")){
