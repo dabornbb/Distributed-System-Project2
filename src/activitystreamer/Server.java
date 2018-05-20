@@ -38,6 +38,7 @@ public class Server {
 		options.addOption("lh",true,"local hostname");
 		options.addOption("a",true,"activity interval in milliseconds");
 		options.addOption("s",true,"secret for the server to use");
+		options.addOption("t",true,"type of server");
 		
 		
 		// build the parser
@@ -83,11 +84,14 @@ public class Server {
 				help(options);
 			}
 		}
-		
-		try {
-			Settings.setLocalHostname(InetAddress.getLocalHost().getHostAddress());
-		} catch (UnknownHostException e) {
-			log.warn("failed to get localhost IP address");
+		/*
+		if(cmd.hasOption("t")){
+			Settings.setServerType(cmd.getOptionValue("t"));
+		}
+		*/
+		// Set master server
+		if(!cmd.hasOption("rh") && !cmd.hasOption("rp") ){
+			Settings.setServerType("m");
 		}
 		
 		if(cmd.hasOption("lh")){
