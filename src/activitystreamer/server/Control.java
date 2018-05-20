@@ -17,7 +17,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import org.json.simple.JSONObject;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Control extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -25,7 +28,8 @@ public class Control extends Thread {
 	private static Listener listener;
 	private JSONParser parser = new JSONParser();
 	protected static Control control = null;
-
+	private BlockingQueue<JSONObject> messageQueueSend;
+	private BlockingQueue<JSONObject> messageQueueRecv;
 	public static Control getInstance() {
 		if(control==null){
 			control=new Control();
@@ -35,12 +39,35 @@ public class Control extends Thread {
 	
 	public Control() {
 		Settings.setServerId();
+
+		messageQueueSend=new LinkedBlockingQueue<JSONObject>();
+		messageQueueRecv=new LinkedBlockingQueue<JSONObject>();
+		/*
+		if (Settings.getRemoteHostname() == null) {
+			Settings.setServerType("m");
+		} else {
+			Settings.setServerType("c");
+		}
+		*/
+		// set the first child server as backup server
+		if (!Settings.getServerType().equals("m")) {
+			//if (!MasCommands.getHasBackup()) {
+				//System.out.println("no back up yet");
+				//Settings.setServerType("b");
+			//} else {
+				//System.out.println("already has backup");
+				//Settings.setServerType("c");
+			//}
+		}
+		
 		if (Settings.getServerType().equals("c")) {
 			System.out.println("[TYPE] Child Server");
 		}else if (Settings.getServerType().equals("m")){
 			System.out.println("[TYPE] Master Server");
 		}else if (Settings.getServerType().equals("b")){
 			System.out.println("[TYPE] Backup Server");
+		} else {
+			log.error("Invalid server type: "+Settings.getServerType());
 		}
 		// start a listener
 		try {
@@ -89,6 +116,7 @@ public class Control extends Thread {
 					break;
 				case "AUTHENTICATE":
 					term = MasCommands.Authenticate(con, obj);
+
 					break;
 				case "BROADCAST_REQUEST":
 					term = MasCommands.deliverList(con);
@@ -150,6 +178,10 @@ public class Control extends Thread {
 				ChildCommands.logoutUser(con);
 				log.debug("term true due to logout");
 				break;
+
+			case "PROMOTION":
+				ChildCommands.promoteToNewRank(obj);
+				break;
 			default: 
 				Commands.invalidMsg(con,"unknown commands");
 				log.debug("term true due to invalid message");
@@ -188,7 +220,6 @@ public class Control extends Thread {
 		log.info("removing connection "+con.getSocket().toString());
 		if(!term) {
 			MasCommands.deleteServer(con);
-
 			// closed by backup server, tbc
 		}
 	}
@@ -199,8 +230,7 @@ public class Control extends Thread {
 	public synchronized Connection incomingConnection(Socket s) throws IOException{
 		log.debug("incomming connection: "+Settings.socketAddress(s));
 		Connection c = new Connection(s);		
-		return c;
-		
+		return c;		
 	}
 	
 	/*
@@ -217,14 +247,16 @@ public class Control extends Thread {
 	public void run(){
 		log.info("using activity interval of "+Settings.getActivityInterval()+" milliseconds");
 		ChildCommands.setMasterConnection(Control.getInstance().initiateConnection());
+
+		//MasCommands.setMasterConnection(Control.getInstance().initiateConnection());
 		while(!term){
 					// do something with 5 second intervals in between
 			try {
 				Thread.sleep(Settings.getActivityInterval());
 				if (Settings.getServerType().equals("m"))
-					log.info("total connections "+ServerList.length());
+					log.info("total server connections (excluding backup): "+ServerList.length());
 				else if (Settings.getServerType().equals("c")) 
-					log.info("total connections "+ChildCommands.onlineLength());
+					log.info("total client connections: "+ChildCommands.onlineLength());
 			} catch (InterruptedException e) {
 				log.info("received an interrupt, system is shutting down");
 				break;

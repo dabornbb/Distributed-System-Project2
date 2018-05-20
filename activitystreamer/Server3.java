@@ -1,9 +1,6 @@
 package activitystreamer;
-
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -16,7 +13,7 @@ import org.apache.logging.log4j.Logger;
 import activitystreamer.server.Control;
 import activitystreamer.util.Settings;
 
-public class Server {
+public class Server3 {
 	private static final Logger log = LogManager.getLogger();
 	
 	private static void help(Options options){
@@ -38,8 +35,6 @@ public class Server {
 		options.addOption("lh",true,"local hostname");
 		options.addOption("a",true,"activity interval in milliseconds");
 		options.addOption("s",true,"secret for the server to use");
-		options.addOption("t",true,"type of server");
-		
 		
 		// build the parser
 		CommandLineParser parser = new DefaultParser();
@@ -84,14 +79,11 @@ public class Server {
 				help(options);
 			}
 		}
-		/*
-		if(cmd.hasOption("t")){
-			Settings.setServerType(cmd.getOptionValue("t"));
-		}
-		*/
-		// Set master server
-		if(!cmd.hasOption("rh") && !cmd.hasOption("rp") ){
-			Settings.setServerType("m");
+		
+		try {
+			Settings.setLocalHostname(InetAddress.getLocalHost().getHostAddress());
+		} catch (UnknownHostException e) {
+			log.warn("failed to get localhost IP address");
 		}
 		
 		if(cmd.hasOption("lh")){
@@ -103,10 +95,15 @@ public class Server {
 		}
 		
 		log.info("starting server");
-		
-		
+                Settings.setLocalHostname("127.0.0.3");
+                Settings.setLocalPort(1113);
+                
+		Settings.setRemoteHostname("127.0.0.1");
+                Settings.setRemotePort(1111);
 		final Control c = Control.getInstance(); 
-		
+                // java -jar ActivityStreamerServer.jar -rp 11111 -rh 127.0.0.1 -s "hello"     
+             
+                
 		// the following shutdown hook doesn't really work, it doesn't give us enough time to
 		// cleanup all of our connections before the jvm is terminated.
 		Runtime.getRuntime().addShutdownHook(new Thread() {

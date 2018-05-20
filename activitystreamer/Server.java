@@ -1,9 +1,6 @@
 package activitystreamer;
-
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -26,7 +23,6 @@ public class Server {
 		formatter.printHelp("ActivityStreamer.Server", header, options, footer, true);
 		System.exit(-1);
 	}
-	
 	public static void main(String[] args) {
 		
 		log.info("reading command line options");
@@ -38,8 +34,6 @@ public class Server {
 		options.addOption("lh",true,"local hostname");
 		options.addOption("a",true,"activity interval in milliseconds");
 		options.addOption("s",true,"secret for the server to use");
-		options.addOption("t",true,"type of server");
-		
 		
 		// build the parser
 		CommandLineParser parser = new DefaultParser();
@@ -84,14 +78,11 @@ public class Server {
 				help(options);
 			}
 		}
-		/*
-		if(cmd.hasOption("t")){
-			Settings.setServerType(cmd.getOptionValue("t"));
-		}
-		*/
-		// Set master server
-		if(!cmd.hasOption("rh") && !cmd.hasOption("rp") ){
-			Settings.setServerType("m");
+		
+		try {
+			Settings.setLocalHostname(InetAddress.getLocalHost().getHostAddress());
+		} catch (UnknownHostException e) {
+			log.warn("failed to get localhost IP address");
 		}
 		
 		if(cmd.hasOption("lh")){
@@ -103,13 +94,16 @@ public class Server {
 		}
 		
 		log.info("starting server");
-		
-		
+                
+		Settings.setLocalPort(1111);
+                Settings.setLocalHostname("127.0.0.1");
+                Settings.setServerId();
+                Settings.setSecret("vsp00mqtpg61b1i6er0mm0k7u5");  
 		final Control c = Control.getInstance(); 
-		
 		// the following shutdown hook doesn't really work, it doesn't give us enough time to
 		// cleanup all of our connections before the jvm is terminated.
 		Runtime.getRuntime().addShutdownHook(new Thread() {
+                        @Override
 			public void run() {  
 				c.setTerm(true);
 				c.interrupt();

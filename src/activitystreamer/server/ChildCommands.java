@@ -1,18 +1,12 @@
 package activitystreamer.server;
-
 import org.json.simple.*;
-
 import java.util.ArrayList;
 import java.sql.Timestamp;
-
 import activitystreamer.util.Commands;
 import activitystreamer.util.Settings;
-
-
 public class ChildCommands {
-	
-	private static Connection MasCon = null;
-	
+	private static Connection masCon = null;
+
 	private static ArrayList<OnlineUser> onlineUsers = new ArrayList<OnlineUser>();
 	public static ArrayList<Connection> connections = new ArrayList<Connection>();// store un-authenticated clients
 	
@@ -36,7 +30,9 @@ public class ChildCommands {
 			time = new Timestamp(System.currentTimeMillis()+timeInt);
 			OnlineUser user = new OnlineUser(username,con,time);
 			onlineUsers.add(user);
+
 			Commands.updateLoad(MasCon, Settings.getServerId(), onlineUsers.size());
+
 			time = new Timestamp(System.currentTimeMillis()+timeInt);
 			Commands.loginSuccess(con);
 		}else {
@@ -82,7 +78,6 @@ public class ChildCommands {
 			System.out.println("Client logged out.");
 		}
 	}
-	
 	/* msg received from -> client, msg sent to -> Mserver*/
 	public static void client2MServer(Connection con, JSONObject obj) {
 		obj.put("connection", con.toString());
@@ -107,12 +102,11 @@ public class ChildCommands {
 	}
 	
 	public static void setMasterConnection(Connection con) {
-		MasCon = con;
+		masCon = con;
 	}
 	
 	public static Connection getMasterConnection() {
-		return MasCon;
-	}
+		return masCon;
 	
 	private static boolean isOnline(Connection con) {
 		for (OnlineUser user:onlineUsers) {
@@ -127,5 +121,16 @@ public class ChildCommands {
 	
 	public static void sendAuthenticate(Connection con) {
 		Commands.sendAuthenticate(con);
+	}	
+	public static void promoteToNewRank(JSONObject obj) {
+		if (obj.get("newRank").equals("backup")){
+			Settings.setServerType("b");
+			System.out.println("I am now BACKUP");
+		}
+	}
+	// send authentication message to Master Server on startup
+	public static void masAuthenticate() {
+		// where is masCon created?
+		Commands.sendAuthenticate(masCon);
 	}
 }

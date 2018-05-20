@@ -14,6 +14,17 @@ public class Commands {
 
 	private static JSONObject sendObj;
 	//write message and automatically shut down connections
+	
+	// promotion
+	public static void sendPromotion(Connection con) {
+		sendObj = new JSONObject();
+		sendObj.put("command", "PROMOTION");
+		sendObj.put("secret", Settings.getSecret());
+		sendObj.put("newRank", "backup");
+		sendObj.put("message", "Congrats! You are now the backup server");
+		con.writeMsg(sendObj.toJSONString());
+	}
+	
 	public static boolean invalidMsg(Connection con,String str) {
 		sendObj = new JSONObject();
 		sendObj.put("command", "INVALID_MESSAGE");

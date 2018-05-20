@@ -1,29 +1,44 @@
 package activitystreamer.server;
-
 import java.util.ArrayList;
 import java.sql.Timestamp;
-
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
-
 import activitystreamer.util.Commands;
 import activitystreamer.util.Settings;
-
 class MasCommands {
 	static ArrayList<User> registeredUsers = new ArrayList<User>();
 //	static ArrayList<ServerLoad> serverLoads = new ArrayList<ServerLoad>();
 	private static Timestamp time = null;
+	
+	// set master server connection for backup server 
+	private static Connection masCon = null;
+	private static Connection backupCon = null;
+	private static boolean hasBackup = false;
+	
+	public static boolean getHasBackup () {
+		return hasBackup;
+	}
 	
 	public static boolean Authenticate(Connection con, JSONObject obj) {
 		if (ServerList.isNewServer(con)) {
 			try {
 				String serversecret = obj.get("secret").toString();
 				if (serversecret.equals(Settings.getSecret())) {
-					ServerList.addServer(con);
-					time = new Timestamp(System.currentTimeMillis());
-					System.out.println(time.getTime());
-					Commands.AuthenSuccess(con, time);
-					return false;
+					if (hasBackup) {
+						ServerList.addServer(con);
+						time = new Timestamp(System.currentTimeMillis());
+						System.out.println(time.getTime());
+						Commands.AuthenSuccess(con, time);
+						return false;
+					} else {
+						hasBackup = true;
+						backupCon = con;
+						time = new Timestamp(System.currentTimeMillis());
+						System.out.println(time.getTime());
+						Commands.AuthenSuccess(con, time);
+						Commands.sendPromotion(con);
+						return false;
+					}
 				}else {
 					Commands.authenFail(con, serversecret);
 					return true;
@@ -150,6 +165,9 @@ class MasCommands {
 	
 	public static void deleteServer(Connection con) {
 		ServerList.deleteServer(con);
+	}	
+	public static int getNumOfChild() {
+		return ServerList.length();
 	}
 }
 
