@@ -1,14 +1,10 @@
 package activitystreamer.server;
-
 import java.util.ArrayList;
 import java.sql.Timestamp;
-
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
-
 import activitystreamer.util.Commands;
 import activitystreamer.util.Settings;
-
 class MasCommands {
 	static ArrayList<User> registeredUsers = new ArrayList<User>();
 //	static ArrayList<ServerLoad> serverLoads = new ArrayList<ServerLoad>();
@@ -169,8 +165,7 @@ class MasCommands {
 	
 	public static void deleteServer(Connection con) {
 		ServerList.deleteServer(con);
-	}
-	
+	}	
 	public static int getNumOfChild() {
 		return ServerList.length();
 	}

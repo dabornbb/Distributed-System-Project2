@@ -30,7 +30,6 @@ public class Control extends Thread {
 	protected static Control control = null;
 	private BlockingQueue<JSONObject> messageQueueSend;
 	private BlockingQueue<JSONObject> messageQueueRecv;
-
 	public static Control getInstance() {
 		if(control==null){
 			control=new Control();
@@ -40,6 +39,7 @@ public class Control extends Thread {
 	
 	public Control() {
 		Settings.setServerId();
+
 		messageQueueSend=new LinkedBlockingQueue<JSONObject>();
 		messageQueueRecv=new LinkedBlockingQueue<JSONObject>();
 		/*
@@ -69,7 +69,6 @@ public class Control extends Thread {
 		} else {
 			log.error("Invalid server type: "+Settings.getServerType());
 		}
-		
 		// start a listener
 		try {
 			listener = new Listener();
@@ -117,6 +116,7 @@ public class Control extends Thread {
 					break;
 				case "AUTHENTICATE":
 					term = MasCommands.Authenticate(con, obj);
+
 					break;
 				case "BROADCAST_REQUEST":
 					term = MasCommands.deliverList(con);
@@ -178,6 +178,7 @@ public class Control extends Thread {
 				ChildCommands.logoutUser(con);
 				log.debug("term true due to logout");
 				break;
+
 			case "PROMOTION":
 				ChildCommands.promoteToNewRank(obj);
 				break;
@@ -219,7 +220,6 @@ public class Control extends Thread {
 		log.info("removing connection "+con.getSocket().toString());
 		if(!term) {
 			MasCommands.deleteServer(con);
-			
 			// closed by backup server, tbc
 		}
 	}
@@ -247,6 +247,7 @@ public class Control extends Thread {
 	public void run(){
 		log.info("using activity interval of "+Settings.getActivityInterval()+" milliseconds");
 		ChildCommands.setMasterConnection(Control.getInstance().initiateConnection());
+
 		//MasCommands.setMasterConnection(Control.getInstance().initiateConnection());
 		while(!term){
 					// do something with 5 second intervals in between

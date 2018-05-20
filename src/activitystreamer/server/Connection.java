@@ -1,6 +1,4 @@
 package activitystreamer.server;
-
-
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -14,10 +12,7 @@ import java.net.SocketException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 import activitystreamer.util.Settings;
-
-
 public class Connection extends Thread {
 	private static final Logger log = LogManager.getLogger();
 	private DataInputStream in;
@@ -69,6 +64,13 @@ public class Connection extends Thread {
 	
 	
 	public void run(){
+
+			String data;
+
+			if (Settings.getServerType().equals("c")) {
+				try {
+					while(!term && (data = inreader.readLine())!=null){
+=======
 			
 			String data;
 			/*
@@ -80,9 +82,7 @@ public class Connection extends Thread {
 			System.out.println(Thread.currentThread().getName() 
 					+ " - Processing client " + clientNum + "  messages");
 			*/
-			if (Settings.getServerType().equals("c")) {
-				try {
-					while(!term && (data = inreader.readLine())!=null){
+			
 						/*
 						MessageRecv msg = messageQueue.take();
 						data = msg.getMessage();
@@ -95,36 +95,19 @@ public class Connection extends Thread {
 					Control.getInstance().removeChildConnectionList(this);
 					in.close();
 				}catch (IOException e) {
-					log.error("connection "+Settings.socketAddress(socket)+" closed with IOException: "+e);
+          
+
+					log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
 					Control.getInstance().removeChildConnectionList(this);
 				}
-				/*catch (InterruptedException e){
-					log.error("connection "+Settings.socketAddress(socket)+" closed with InterruptedException: "+e);
-					Control.getInstance().removeChildConnectionList(this);
-				}*/
 			}else if (Settings.getServerType().equals("m")){
 				try {
 					while(!term && (data = inreader.readLine())!=null){
-						/*
-						MessageRecv msg = messageQueue.take();
-						data = msg.getMessage();
-						if (!msg.isFromClient() && msg.getMessage().equals("exit"))
-							break;
-						*/
-						term=Control.getInstance().processMas(this,data);
-					}
-					log.debug("connection closed to "+Settings.socketAddress(socket));
-					Control.getInstance().removeMasterConnectionList(this);
-					in.close();
-				}catch (IOException e) {
-					log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
-					Control.getInstance().removeMasterConnectionList(this);
-				}
+
 				/*catch (InterruptedException e){
 					log.error("connection "+Settings.socketAddress(socket)+" closed with InterruptedException: "+e);
 					Control.getInstance().removeChildConnectionList(this);
-				}*/
-					
+				}*/			
 			}else if (Settings.getServerType().equals("b")){
 //				term=Control.getInstance().processBackUp(this,data);
 			}
