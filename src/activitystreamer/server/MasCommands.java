@@ -9,22 +9,27 @@ import org.json.simple.JSONArray;
 import activitystreamer.util.Commands;
 import activitystreamer.util.Settings;
 
-class MasCommands {
+public class MasCommands {
 	static ArrayList<User> registeredUsers = new ArrayList<User>();
 	private static Timestamp time = null;
+	
 	// set master server connection for backup server 
 	private static Connection masCon = null;
 	private static Connection backupCon = null;
 	private static boolean hasBackup = false;
+	
 	public static boolean getHasBackup () {
 		return hasBackup;
 	}
+	
 	public static Connection getBackupCon () {
 		return backupCon;
 	}
+	
 	public static ArrayList getUserList () {
 		return registeredUsers;
 	}
+	
 	public static boolean Authenticate(Connection con, JSONObject obj) {
 		if (ServerList.isNewServer(con)) {
 			try {
@@ -53,9 +58,12 @@ class MasCommands {
 				Commands.invalidMsg(con, "secret missing");
 				return true;
 			}
+			
 		}
 		return false;
+	
 	}
+	
 	public static boolean Register(Connection con,JSONObject obj) {
 		if(ServerList.isNewServer(con)) {
 			Commands.invalidMsg(con, "Server Not in Group");
@@ -141,9 +149,11 @@ class MasCommands {
 	public static boolean updateLoad(Connection con, JSONObject obj) {
 		String id = obj.get("id").toString();
 		if (!ServerList.isNewServer(id)) {
+			System.out.println("found id: "+id);
 			ServerList.update(id, obj, con);
 			return false;
 		}else if(!ServerList.isNewServer(con)) {
+			System.out.println("found connection");
 			ServerList.update(con, obj);
 			return false;
 		}
@@ -172,6 +182,9 @@ class MasCommands {
 	
 	public static int getNumOfChild() {
 		return ServerList.length();
+	}
+	public static void updateServerList(JSONObject recvOnj) {
+		
 	}
 }
 

@@ -1,14 +1,24 @@
 package activitystreamer.util;
+
 import activitystreamer.server.Connection;
 import activitystreamer.server.ServerList;
+import activitystreamer.server.MasCommands;
+import activitystreamer.server.ServerLoad;
+
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.json.simple.JSONArray;
+
 import java.sql.Timestamp;
+import java.util.ArrayList;
+
 public class Commands {
+
+
 	private static JSONObject sendObj;
 	//write message and automatically shut down connections
+	
 	// promotion
 	public static void sendPromotion(Connection con) {
 		sendObj = new JSONObject();
@@ -20,12 +30,24 @@ public class Commands {
 	}
 	
 	// Data sync between master and backup servers
-	/*
+
 	public static void backupMasterData (){
 		Connection con = MasCommands.getBackupCon();
 		sendObj = new  JSONObject();
-		JSONArray usr = new JSONArray(MasCommands.getUserList());
-		JSONArray svr = new JSONArray(ServerList.getServerList());
+		JSONArray usr = new JSONArray();
+		JSONArray svr = new JSONArray();
+		ArrayList tempu = MasCommands.getUserList();
+		for (int i=0; i<tempu.size(); i++) {
+			usr.add(tempu.get(i).toString());
+		}
+		ArrayList <ServerLoad> temps = ServerList.getServerList();
+		for (int i=0; i<temps.size(); i++) {
+			ServerLoad sl = temps.get(i);
+			svr.add(sl.objToString());
+		}
+		
+		//JSONArray usr = new JSONArray(MasCommands.getUserList());
+		//JSONArray svr = new JSONArray(ServerList.getServerList());
 		sendObj.put("command", "SYNC_DATA");
 		sendObj.put("secret", Settings.getSecret());
 		sendObj.put("info", "Master syncs data with backup every 30s");
@@ -34,7 +56,7 @@ public class Commands {
 		con.writeMsg(sendObj.toJSONString());
 		System.out.println ("Data sync to backup: " + sendObj.toString());
 	}		
-	*/
+	
 	public static boolean invalidMsg(Connection con,String str) {
 		sendObj = new JSONObject();
 		sendObj.put("command", "INVALID_MESSAGE");
@@ -64,13 +86,6 @@ public class Commands {
 		sendObj = new JSONObject();
 		sendObj.put("command", "LOGIN_SUCCESS");
 		sendObj.put("info", "login anonymous");
-		con.writeMsg(sendObj.toJSONString());
-	}
-        
-	public static void reconnectSuccess(Connection con) {
-		sendObj = new JSONObject();
-		sendObj.put("command", "RECONNECT_SUCCESS");
-		sendObj.put("info", "reconnect anonymous");
 		con.writeMsg(sendObj.toJSONString());
 	}
 	
@@ -135,6 +150,8 @@ public class Commands {
 		sendObj.put("command", "UPDATE_LOAD");
 		sendObj.put("id", id);
 		sendObj.put("load", load);
+		sendObj.put("hostname",Settings.getLocalHostname());
+		sendObj.put("port", Settings.getLocalPort());
 		con.writeMsg(sendObj.toJSONString());
 	}
 }

@@ -21,11 +21,11 @@ public class ServerList {
 			try {
 				load = Integer.parseInt(obj.get("load").toString());
 				serverList.get(serverat).setLoad(load);
-			}catch(NumberFormatException e) {}
+			}catch(Exception e) {}
 			try {
 				port = Integer.parseInt(obj.get("port").toString());
 				serverList.get(serverat).setPort(port);
-			}catch(NumberFormatException e) {}
+			}catch(Exception e) {}
 			try {
 				String hostname = obj.get("hostname").toString();
 				serverList.get(serverat).setHostname(hostname);

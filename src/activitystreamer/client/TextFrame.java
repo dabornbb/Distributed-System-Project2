@@ -29,7 +29,6 @@ import java.net.UnknownHostException;
 import java.io.IOException;
 
 import activitystreamer.util.Settings;
-import java.util.logging.Level;
 
 @SuppressWarnings("serial")
 public class TextFrame extends JFrame implements ActionListener {
@@ -82,11 +81,7 @@ public class TextFrame extends JFrame implements ActionListener {
 		addWindowListener(new java.awt.event.WindowAdapter(){
 			@Override
 			public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-                            try {
-                                ClientSkeleton.getInstance().disconnect();
-                            } catch (InterruptedException ex) {
-                                java.util.logging.Logger.getLogger(TextFrame.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+				ClientSkeleton.getInstance().disconnect();
 				System.exit(0);
 			}
 		});
@@ -133,21 +128,11 @@ public class TextFrame extends JFrame implements ActionListener {
 				msgObj = new JSONObject();
 				msgObj.put ("message", msg);
 				obj.put("activity", msgObj);
-                            try {
-                                ClientSkeleton.getInstance().sendActivityObject(obj);
-                            } catch (InterruptedException ex) {
-                                java.util.logging.Logger.getLogger(TextFrame.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-			} catch (InterruptedException ex) {
-                        java.util.logging.Logger.getLogger(TextFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    }
+				ClientSkeleton.getInstance().sendActivityObject(obj);
+			}
 			
 		} else if(e.getSource()==disconnectButton){
-                    try {
-                        ClientSkeleton.getInstance().disconnect();
-                    } catch (InterruptedException ex) {
-                        java.util.logging.Logger.getLogger(TextFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    }
+			ClientSkeleton.getInstance().disconnect();
 		}
 	}
 

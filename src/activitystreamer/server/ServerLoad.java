@@ -19,6 +19,15 @@ public class ServerLoad {
 		setPort(port);
 	}
 	
+	public JSONObject objToString(){
+		JSONObject obj = new JSONObject();
+		obj.put("id", id);
+		obj.put("load", load);
+		obj.put("hostname", hostname);
+		obj.put("port", port);
+		return obj;
+	}
+	
 	public void setId(String id) {
 		this.id = id;
 	}
