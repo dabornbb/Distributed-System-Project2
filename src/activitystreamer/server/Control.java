@@ -194,7 +194,31 @@ public class Control extends Thread {
 		}
 		return term;
 	}
-	
+	public synchronized boolean processBackUp(Connection con,String msg){
+		log.debug("Calling backup process");
+		JSONObject obj;
+		boolean term;
+		try {
+			obj = (JSONObject) parser.parse(msg);
+			String cmd = obj.get("command").toString();
+			System.out.println("[RECEIVED]" + msg);
+			term = false;
+			switch (cmd) {
+				case "SYNC_DATA":
+					log.info("data synced");
+					break;
+				default: 
+					Commands.invalidMsg(con,"unknown commands");
+					log.debug("term true due to invalid message");
+					term = true;
+					break;
+			}
+		} catch (ParseException e1) {
+			log.error("invalid JSON object received at server, data is not processed");
+			term = true;
+		}
+		return term;
+	}
 	/*
 	 * The connection has been closed by the other party. -> ChildServer
 	 */
@@ -240,8 +264,7 @@ public class Control extends Thread {
 	public synchronized Connection outgoingConnection(Socket s) throws IOException{
 		log.debug("outgoing connection: "+Settings.socketAddress(s));
 		Connection c = new Connection(s);
-		return c;
-		
+		return c;	
 	}
 	
 	@Override
@@ -254,19 +277,22 @@ public class Control extends Thread {
 					// do something with 5 second intervals in between
 			try {
 				Thread.sleep(Settings.getActivityInterval());
-				if (Settings.getServerType().equals("m"))
-					log.info("total server connections (excluding backup): "+ServerList.length());
-				else if (Settings.getServerType().equals("c")) 
+				if (Settings.getServerType().equals("c")) {
+					Commands.updateLoad(ChildCommands.getMasCon(), Settings.getServerId(), ChildCommands.onlineLength());
 					log.info("total client connections: "+ChildCommands.onlineLength());
-				/*
-				if (count<6)
-					count++;
-				else {
-					log.info("Backup interval: "+ (count*5) + " seconds");
-					count=0;
-					Commands.backupMasterData();
 				}
-				*/
+				if (Settings.getServerType().equals("m")) {
+					log.info("total server connections (excluding backup): "+ServerList.length());
+					if (count<6)
+						count++;
+					else {
+						if (MasCommands.getHasBackup()) {
+							Commands.backupMasterData();
+							log.info("Backup interval: "+ (count*5) + " seconds");
+						}
+						count=0;
+					}
+				}				
 			} catch (InterruptedException e) {
 				log.info("received an interrupt, system is shutting down");
 				break;
