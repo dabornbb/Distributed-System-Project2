@@ -103,8 +103,10 @@ public class Server {
 		}
 		
 		log.info("starting server");
-		
-		
+//		Settings.setLocalPort(8001);
+//                Settings.setSecret("123");  
+//		
+                // -s 123 -lp 8001
 		final Control c = Control.getInstance(); 
 		
 		// the following shutdown hook doesn't really work, it doesn't give us enough time to

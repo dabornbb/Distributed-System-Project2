@@ -9,6 +9,9 @@ public class ServerList {
 	public static ArrayList<ServerLoad> serverList= new ArrayList<ServerLoad>();
 	private static int serverat = 0;
 	
+	public static ArrayList getServerList() {
+		return serverList;
+	}
 	
 	public static void update(String id, JSONObject obj,Connection con) {
 		
@@ -18,11 +21,11 @@ public class ServerList {
 			try {
 				load = Integer.parseInt(obj.get("load").toString());
 				serverList.get(serverat).setLoad(load);
-			}catch(Exception e) {}
+			}catch(NumberFormatException e) {}
 			try {
 				port = Integer.parseInt(obj.get("port").toString());
 				serverList.get(serverat).setPort(port);
-			}catch(Exception e) {}
+			}catch(NumberFormatException e) {}
 			try {
 				String hostname = obj.get("hostname").toString();
 				serverList.get(serverat).setHostname(hostname);

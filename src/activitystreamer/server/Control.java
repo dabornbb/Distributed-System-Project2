@@ -18,6 +18,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import org.json.simple.JSONObject;
+import org.json.simple.JSONArray;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -30,6 +31,7 @@ public class Control extends Thread {
 	protected static Control control = null;
 	private BlockingQueue<JSONObject> messageQueueSend;
 	private BlockingQueue<JSONObject> messageQueueRecv;
+
 	public static Control getInstance() {
 		if(control==null){
 			control=new Control();
@@ -39,8 +41,7 @@ public class Control extends Thread {
 	
 	public Control() {
 		Settings.setServerId();
-
-		messageQueueSend=new LinkedBlockingQueue<JSONObject>();
+		//messageQueueSend=new LinkedBlockingQueue<JSONObject>();
 		messageQueueRecv=new LinkedBlockingQueue<JSONObject>();
 		/*
 		if (Settings.getRemoteHostname() == null) {
@@ -69,6 +70,7 @@ public class Control extends Thread {
 		} else {
 			log.error("Invalid server type: "+Settings.getServerType());
 		}
+		
 		// start a listener
 		try {
 			listener = new Listener();
@@ -116,7 +118,6 @@ public class Control extends Thread {
 					break;
 				case "AUTHENTICATE":
 					term = MasCommands.Authenticate(con, obj);
-
 					break;
 				case "BROADCAST_REQUEST":
 					term = MasCommands.deliverList(con);
@@ -178,7 +179,6 @@ public class Control extends Thread {
 				ChildCommands.logoutUser(con);
 				log.debug("term true due to logout");
 				break;
-
 			case "PROMOTION":
 				ChildCommands.promoteToNewRank(obj);
 				break;
@@ -220,6 +220,7 @@ public class Control extends Thread {
 		log.info("removing connection "+con.getSocket().toString());
 		if(!term) {
 			MasCommands.deleteServer(con);
+			
 			// closed by backup server, tbc
 		}
 	}
@@ -247,8 +248,8 @@ public class Control extends Thread {
 	public void run(){
 		log.info("using activity interval of "+Settings.getActivityInterval()+" milliseconds");
 		ChildCommands.setMasterConnection(Control.getInstance().initiateConnection());
-
 		//MasCommands.setMasterConnection(Control.getInstance().initiateConnection());
+		int count = 0;
 		while(!term){
 					// do something with 5 second intervals in between
 			try {
@@ -257,6 +258,15 @@ public class Control extends Thread {
 					log.info("total server connections (excluding backup): "+ServerList.length());
 				else if (Settings.getServerType().equals("c")) 
 					log.info("total client connections: "+ChildCommands.onlineLength());
+				/*
+				if (count<6)
+					count++;
+				else {
+					log.info("Backup interval: "+ (count*5) + " seconds");
+					count=0;
+					Commands.backupMasterData();
+				}
+				*/
 			} catch (InterruptedException e) {
 				log.info("received an interrupt, system is shutting down");
 				break;

@@ -1,24 +1,30 @@
 package activitystreamer.server;
+
 import java.util.ArrayList;
 import java.sql.Timestamp;
+
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
+
 import activitystreamer.util.Commands;
 import activitystreamer.util.Settings;
+
 class MasCommands {
 	static ArrayList<User> registeredUsers = new ArrayList<User>();
-//	static ArrayList<ServerLoad> serverLoads = new ArrayList<ServerLoad>();
 	private static Timestamp time = null;
-	
 	// set master server connection for backup server 
 	private static Connection masCon = null;
 	private static Connection backupCon = null;
 	private static boolean hasBackup = false;
-	
 	public static boolean getHasBackup () {
 		return hasBackup;
 	}
-	
+	public static Connection getBackupCon () {
+		return backupCon;
+	}
+	public static ArrayList getUserList () {
+		return registeredUsers;
+	}
 	public static boolean Authenticate(Connection con, JSONObject obj) {
 		if (ServerList.isNewServer(con)) {
 			try {
@@ -47,12 +53,9 @@ class MasCommands {
 				Commands.invalidMsg(con, "secret missing");
 				return true;
 			}
-			
 		}
 		return false;
-	
 	}
-	
 	public static boolean Register(Connection con,JSONObject obj) {
 		if(ServerList.isNewServer(con)) {
 			Commands.invalidMsg(con, "Server Not in Group");
@@ -165,7 +168,8 @@ class MasCommands {
 	
 	public static void deleteServer(Connection con) {
 		ServerList.deleteServer(con);
-	}	
+	}
+	
 	public static int getNumOfChild() {
 		return ServerList.length();
 	}

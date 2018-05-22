@@ -16,6 +16,7 @@ public class Settings {
 	private static String remoteHostname = null;
 	private static int remotePort = 3721;
 	private static int activityInterval = 5000; // milliseconds
+	private static int backupInterval = 6; // backup every 30 seconds = 6 * activityInterval
 	private static String secret = null;
 	private static String username = "anonymous";
 	private static String serverId;
@@ -65,6 +66,10 @@ public class Settings {
 	
 	public static int getActivityInterval() {
 		return activityInterval;
+	}
+	
+	public static int getbackupInterval() {
+		return backupInterval;
 	}
 
 	public static void setActivityInterval(int activityInterval) {
