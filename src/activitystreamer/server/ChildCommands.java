@@ -132,19 +132,12 @@ public class ChildCommands {
 	public static void promoteToNewRank(JSONObject obj) {
 		if (obj.get("newRank").equals("backup")){
 			Settings.setServerType("b");
-			if (Settings.getServerType().equals("b"))
-				System.out.println("I am now BACKUP");
-			else 
-				System.out.println("Current server type: " + Settings.getServerType());
+			System.out.println("I am now BACKUP");
 		}
 	}
 	// send authentication message to Master Server on startup
 	public static void masAuthenticate() {
 		// where is masCon created?
 		Commands.sendAuthenticate(masCon);
-	}
-	
-	public static Connection getMasCon (){
-		return masCon;
 	}
 }

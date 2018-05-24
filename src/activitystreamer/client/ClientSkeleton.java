@@ -5,7 +5,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.Socket;
 
 import org.apache.logging.log4j.LogManager;
@@ -13,10 +12,9 @@ import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-
 import activitystreamer.util.Settings;
-
-import java.net.UnknownHostException;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 public class ClientSkeleton extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -29,25 +27,24 @@ public class ClientSkeleton extends Thread {
 	private BufferedReader br;
 	private boolean connected = false;
 	private String info;
-	public static ClientSkeleton getInstance(){
+	public static ClientSkeleton getInstance() throws InterruptedException{
 		if(clientSolution==null){
 			clientSolution = new ClientSkeleton();
 		}
 		return clientSolution;
 	}
-	
-	public ClientSkeleton(){
-		System.out.println("[ACCESS] accessing clientSkeleton.ClientSkeleton...");
+	public ClientSkeleton() throws InterruptedException{
+//		System.out.println("[ACCESS] accessing clientSkeleton.ClientSkeleton...");
 		initSocket();
 		start();
 
 	}
-		
 	
 	@SuppressWarnings("unchecked")
-	public void sendActivityObject(JSONObject activityObj) {
+	public void sendActivityObject(JSONObject activityObj) throws InterruptedException {
 		System.out.println("[ACCESS] accessing clientSkeleton.sendActivityObject...");
-		if (!connected) initSocket();
+		if (!connected) 
+                    initSocket();
 		try {
 			String sentence = activityObj.toString();
 			System.out.println("JSON object received: "+sentence);
@@ -75,15 +72,13 @@ public class ClientSkeleton extends Thread {
 			outToServer.close();
 			clientSocket.close();
 			connected = false;
-		}catch(IOException e) {}
-		
+		}catch(IOException e) {}	
 	}
 	
-	
 	public void run(){
+            outer:
 		while(connected) {
 			try {
-				
 				info = null;
 				while ((info = br.readLine())!=null) {
 					System.out.println("[ACCESS] accessing clientSkeleton.run with inread buffer...");
@@ -93,10 +88,16 @@ public class ClientSkeleton extends Thread {
 					String cmd = obj.get("command").toString();
 					System.out.println("[ACCESS] accessing clientSkeleton.getCmd..."+cmd);
 					switch (cmd) {
+                                         
 					case "REGISTER_SUCCESS":
 						connected = false;
 						break;						
 					case "LOGIN_SUCCESS":
+						textFrame = new TextFrame();
+						textFrame.setOutputText(obj);
+						connected = true;
+						break;
+                                        case "RECONNECT_SUCCESS":
 						textFrame = new TextFrame();
 						textFrame.setOutputText(obj);
 						connected = true;
@@ -129,20 +130,46 @@ public class ClientSkeleton extends Thread {
 				}
 				
 	//			inFromServer.close();
+                                 
 				}catch (ParseException e) {
 					System.out.println("[ACCESS] accessing clientSkeleton.runtimeParseException...");
-				}
-				catch(IOException e) {
-					System.out.println("[ACCESS] accessing clientSkeleton.runtimeIOException...");}
+				}catch(IOException e) {                                          try { // reconnect in after server downs
+                                    int i=0;
+                                    connected=Reconnect();
+                                    try {
+                                        while (!connected  && i++ <5){
+                                            if(!connected)
+                                                System.out.println("Server is down, waiting to reconnect in 5 seconds , "+i+"/5 attemp(s).");
+                                            else
+                                                System.out.println("Fail to reconnect after "+i+" attemp(s). Give up Connection.");
+                                            TimeUnit.SECONDS.sleep(5);
+                                            connected=Reconnect();
+                                            if(connected){
+                                                System.out.println("Reconnect Success , Connected="+ connected);
+                                                continue outer;
+                                            }
+                                        }
+                                        System.out.println("fail to reconnect, give up connection");
+                                        System.exit(0);
+                                    } catch(InterruptedException ie) {
+                                        
+                                        System.out.println("Reconnect Time Out!!");
+                                        System.exit(0);
+                                    }
+                                } catch(InterruptedException ex) {
+                                        java.util.logging.Logger.getLogger(ClientSkeleton.class.getName()).log(Level.SEVERE, null, ex);
+                                            }
+                                }
 				catch(NullPointerException e) {
-					System.out.println("[ACCESS] accessing clientSkeleton.runtimeNullPointerException...");}
+					System.out.println("[ACCESS] accessing clientSkeleton.runtimeNullPointerException...");} catch (InterruptedException ex) {
+                        java.util.logging.Logger.getLogger(ClientSkeleton.class.getName()).log(Level.SEVERE, null, ex);
+                    }
 		}
-		disconnect();
 		System.exit(0);
 	}
 	
 	
-	private void initSocket() {
+	private void initSocket() throws InterruptedException, InterruptedException {
 		System.out.println("[ACCESS] accessing clientSkeleton.Init...");
 		try {
 			clientSocket = new Socket(Settings.getRemoteHostname(),Settings.getRemotePort());
@@ -177,11 +204,13 @@ public class ClientSkeleton extends Thread {
 			System.out.println(sendObj.toJSONString());
 			outToServer.writeBytes(sendObj.toJSONString()+'\n');
 		}catch (IOException e) {
+             
 			System.out.println("reaching ioexception"+e);
 			}
-		}
+		
+        }
 
-	private void redirection(JSONObject obj){
+	private void redirection(JSONObject obj) throws InterruptedException{
 		System.out.println("[ACCESS] accessing clientSkeleton.Redirection...");
 		disconnect();
 		Settings.setRemoteHostname(obj.get("hostname").toString());
@@ -189,4 +218,27 @@ public class ClientSkeleton extends Thread {
 		initSocket();
 		
 	}
+private boolean Reconnect() throws InterruptedException, InterruptedException {
+    
+		try {
+                    if(Settings.getRemoteHostname() != null){
+                        clientSocket = new Socket(Settings.getRemoteHostname(),Settings.getRemotePort());
+			outToServer = new DataOutputStream(clientSocket.getOutputStream());
+			inFromServer = new DataInputStream(clientSocket.getInputStream());
+			br = new BufferedReader(new InputStreamReader(inFromServer));
+			JSONObject rObj = new JSONObject();
+                        rObj.put("command", "LOGIN");
+                        rObj.put("username",Settings.getUsername());
+                        
+                            if (!"anonymous".equals(Settings.getUsername()))     
+                                rObj.put("secret", Settings.getSecret());
+			outToServer.writeBytes(rObj.toJSONString()+'\n');
+                        connected=true;
+                        return true;
+                    }
+		}catch (IOException e) {
+			System.out.println("reaching ioexception "+e);
+			}
+	return false;	
+        }
 }
