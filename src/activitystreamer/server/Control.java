@@ -2,7 +2,6 @@ package activitystreamer.server;
 
 import java.io.IOException;
 import java.net.Socket;
-import java.util.ArrayList;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -13,12 +12,6 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONArray;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -29,9 +22,7 @@ public class Control extends Thread {
 	private static Listener listener;
 	private JSONParser parser = new JSONParser();
 	protected static Control control = null;
-	private BlockingQueue<JSONObject> messageQueueSend;
-	private BlockingQueue<JSONObject> messageQueueRecv;
-
+	private RegProcessor regProcess;
 	public static Control getInstance() {
 		if(control==null){
 			control=new Control();
@@ -41,30 +32,16 @@ public class Control extends Thread {
 	
 	public Control() {
 		Settings.setServerId();
-		//messageQueueSend=new LinkedBlockingQueue<JSONObject>();
-		messageQueueRecv=new LinkedBlockingQueue<JSONObject>();
-		/*
-		if (Settings.getRemoteHostname() == null) {
-			Settings.setServerType("m");
-		} else {
-			Settings.setServerType("c");
-		}
-		*/
 		// set the first child server as backup server
 		if (!Settings.getServerType().equals("m")) {
-			//if (!MasCommands.getHasBackup()) {
-				//System.out.println("no back up yet");
-				//Settings.setServerType("b");
-			//} else {
-				//System.out.println("already has backup");
-				//Settings.setServerType("c");
-			//}
 		}
 		
 		if (Settings.getServerType().equals("c")) {
 			System.out.println("[TYPE] Child Server");
 		}else if (Settings.getServerType().equals("m")){
 			System.out.println("[TYPE] Master Server");
+			regProcess = new RegProcessor(MasCommands.registrationQueue);
+			regProcess.start();
 		}else if (Settings.getServerType().equals("b")){
 			System.out.println("[TYPE] Backup Server");
 		} else {
@@ -103,32 +80,39 @@ public class Control extends Thread {
 	 */
 	public synchronized boolean processMas(Connection con,String msg){
 		JSONObject obj;
+		log.debug("message received: "+msg);
 		boolean term;
 		try {
 			obj = (JSONObject) parser.parse(msg);
 			String cmd = obj.get("command").toString();
 			System.out.println("[RECEIVED]" + msg);
 			term = false;
-			switch (cmd) {
-				case "REGISTER":
-					term = MasCommands.Register(con,obj);
-					break;
-				case "LOGIN":
-					term = MasCommands.Login(con, obj);
-					break;
-				case "AUTHENTICATE":
-					term = MasCommands.Authenticate(con, obj);
-					break;
-				case "BROADCAST_REQUEST":
-					term = MasCommands.deliverList(con);
-					break;
-				case "UPDATE_LOAD":
-					term = MasCommands.updateLoad(con,obj);
-					break;
-				default: 
-					Commands.invalidMsg(con,"unknown commands");
-					term = true;
-					break;
+			if (cmd.equals("AUTHENTICATE")) {
+				term = MasCommands.Authenticate(con, obj);
+			}else if(ServerList.isNewServer(con)) {
+				Commands.invalidMsg(con, "Server Not in Group");
+				term = true;
+			}else {
+				switch (cmd) {
+					case "REGISTER":
+						MasCommands.registrationQueue.add(new RegMsg(con,obj));
+						break;
+					case "LOGIN":
+						term = MasCommands.Login(con, obj);
+						break;
+					case "AUTHENTICATE":
+						break;
+					case "BROADCAST_REQUEST":
+						term = MasCommands.deliverList(con,obj);
+						break;
+					case "UPDATE_LOAD":
+						term = MasCommands.updateLoad(con,obj);
+						break;
+					default: 
+						Commands.invalidMsg(con,"unknown commands");
+						term = true;
+						break;
+				}
 			}
 		} catch (ParseException e1) {
 			log.error("invalid JSON object received at server, data is not processed");
@@ -182,6 +166,15 @@ public class Control extends Thread {
 			case "PROMOTION":
 				ChildCommands.promoteToNewRank(obj);
 				break;
+			case "ACTIVITY_MESSAGE":	
+				ChildCommands.getServerList(con,obj);
+				break;
+			case "CONTACT_LIST":
+				ChildCommands.broadcastMsg(obj);			
+				break;
+			case "ACTIVITY_BROADCAST":
+				ChildCommands.broadcast2Clients(obj);
+				break;
 			default: 
 				Commands.invalidMsg(con,"unknown commands");
 				log.debug("term true due to invalid message");
@@ -194,6 +187,36 @@ public class Control extends Thread {
 		}
 		return term;
 	}
+
+	public synchronized boolean processBackUp(Connection con,String msg){
+		log.debug("Calling backup process");
+		JSONObject obj;
+		boolean term;
+		try {
+			obj = (JSONObject) parser.parse(msg);
+			String cmd = obj.get("command").toString();
+			System.out.println("[RECEIVED]" + msg);
+			term = false;
+			switch (cmd) {
+				case "SYNC_DATA":
+					MasCommands.updateServerList(obj);
+					MasCommands.updateUserList(obj);
+					log.info("data synced");
+					break;
+				default: 
+					Commands.invalidMsg(con,"unknown commands");
+					log.debug("term true due to invalid message");
+					term = true;
+					break;
+			}
+		} catch (ParseException e1) {
+			log.error("invalid JSON object received at server, data is not processed");
+			term = true;
+		}
+		return term;
+	}
+
+	
 	
 	/*
 	 * The connection has been closed by the other party. -> ChildServer

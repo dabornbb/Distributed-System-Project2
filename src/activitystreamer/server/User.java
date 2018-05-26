@@ -1,5 +1,7 @@
 package activitystreamer.server;
 
+import org.json.simple.JSONObject;
+
 public class User {
 	private String username;
 	private String secret;
@@ -14,5 +16,11 @@ public class User {
 	public String getSecret() {
 		return secret;
 	}
-
+	
+	public JSONObject objToString(){
+		JSONObject obj = new JSONObject();
+		obj.put("username", username);
+		obj.put("secret", secret);
+		return obj;
+	}
 }

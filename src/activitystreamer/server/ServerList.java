@@ -1,5 +1,7 @@
 package activitystreamer.server;
 
+import java.util.*;
+
 import org.json.simple.JSONObject;
 
 import activitystreamer.util.Commands;
@@ -8,8 +10,9 @@ import java.util.ArrayList;
 public class ServerList {
 	public static ArrayList<ServerLoad> serverList= new ArrayList<ServerLoad>();
 	private static int serverat = 0;
-	
-	public static ArrayList getServerList() {
+
+
+	public static ArrayList<ServerLoad> getServerList() {
 		return serverList;
 	}
 	
@@ -21,11 +24,11 @@ public class ServerList {
 			try {
 				load = Integer.parseInt(obj.get("load").toString());
 				serverList.get(serverat).setLoad(load);
-			}catch(NumberFormatException e) {}
+			}catch(Exception e) {}
 			try {
 				port = Integer.parseInt(obj.get("port").toString());
 				serverList.get(serverat).setPort(port);
-			}catch(NumberFormatException e) {}
+			}catch(Exception e) {}
 			try {
 				String hostname = obj.get("hostname").toString();
 				serverList.get(serverat).setHostname(hostname);
@@ -84,11 +87,8 @@ public class ServerList {
 	}
 	
 	
-	public static void addServer(Connection con, String hostname, int port) {
-		ServerLoad server = new ServerLoad(con);
-		server.setHostname(hostname);;
-		server.setPort(port);
-		serverList.add(server);
+	public static void addServer(Connection con, String id,String hostname, int port) {
+		serverList.add(new ServerLoad(con,id,hostname,port));
 	}
 	
 	public static void addServer(Connection con) {
@@ -99,14 +99,11 @@ public class ServerList {
 		if (!isNewServer(con)) serverList.remove(serverat);
 	}
 
-	public static ServerLoad redirectTo(Connection con) {
-		int thisload = getLoad(con);
-		for (ServerLoad sl:serverList) {
-			if (sl.getLoad()<=(thisload-2)) {
-				return sl;
-			}
-		}
-		return null;
+	public static ServerLoad redirectTo(String id) {
+		// if the first server in list is the server itself, return null, else return the server
+		if (serverList.get(0).getId().equals(id))
+			return null;
+		return serverList.get(0);
 	}
 	
 	private static int getLoad(Connection con) {
@@ -128,5 +125,13 @@ public class ServerList {
 				return sl.getCon();
 		}
 		return null;
+	}
+	
+	// sort the list of child servers by lowest load to highest load , ArrayList <ServerLoad>
+	public static void sortServerList_byLoad_fromLowest_toHighest() {
+		Collections.sort(serverList);
+		for (int i=0; i<serverList.size(); i++) {
+			System.out.println(serverList.get(i).objToString());
+		}
 	}
 }

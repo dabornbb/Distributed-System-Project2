@@ -16,11 +16,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import activitystreamer.util.Settings;
-//<<<<<<< MServer
-import activitystreamer.util.Commands;
-//=======
 
-//>>>>>>> master
+import activitystreamer.util.Commands;
+
 
 public class Connection extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -38,7 +36,7 @@ public class Connection extends Thread {
 	    out = new DataOutputStream(socket.getOutputStream());
 	    inreader = new BufferedReader( new InputStreamReader(in));
 	    outwriter = new PrintWriter(out, true);
-//		messageQueue = new LinkedBlockingQueue<MessageRecv>();
+		messageQueue = new LinkedBlockingQueue<MessageRecv>();
 	    this.socket = socket;
 	    open = true;
 	    start();
@@ -76,54 +74,40 @@ public class Connection extends Thread {
 			
 			String data;
 
+			MessageRecv msg;
+			MessageReader messageReader = new MessageReader(inreader, messageQueue);
+			messageReader.setName(this.getName() + "Reader");
+			messageReader.start();
 			if (Settings.getServerType().equals("c")) {
 				try {
-					while(!term && (data = inreader.readLine())!=null){
+					while(!term && (msg = messageQueue.take())!=null){
+						data = msg.getMessage();
 						term=Control.getInstance().processChild(this,data);
-						if (Settings.getServerType().equals("b"))
-							break;
-//<<<<<<< MServer
-					}
-					if (!Settings.getServerType().equals("b")) {
-						log.debug("connection closed to "+Settings.socketAddress(socket));
-						Control.getInstance().removeChildConnectionList(this);
-						in.close();
-					}
 					
-				}catch (IOException e) {
-					log.error("connection "+Settings.socketAddress(socket)+" closed with IOException: "+e);
-					//Control.getInstance().removeChildConnectionList(this);
-				}
-			}else if (Settings.getServerType().equals("m")){
-				try {
-					while(!term && (data = inreader.readLine())!=null){
-						term=Control.getInstance().processMas(this,data);
 					}
-/*=======
-					}
-					if (!Settings.getServerType().equals("b")) {
-						log.debug("connection closed to "+Settings.socketAddress(socket));
-						Control.getInstance().removeChildConnectionList(this);
-						in.close();
-					}
+					log.debug("connection closed to "+Settings.socketAddress(socket));
+					Control.getInstance().removeChildConnectionList(this);
+					in.close();
 				}catch (IOException e) {
 					log.error("connection "+Settings.socketAddress(socket)+" closed with IOException: "+e);
 					Control.getInstance().removeChildConnectionList(this);
+				}catch (Exception e) {
+					e.printStackTrace();
 				}
 			}else if (Settings.getServerType().equals("m")){
 				try {
-					while(!term && (data = inreader.readLine())!=null){
+					while(!term && (msg = messageQueue.take())!=null){
+						data = msg.getMessage();
+
 						term=Control.getInstance().processMas(this,data);
 					}
->>>>>>> master
-*/
 					log.debug("connection closed to "+Settings.socketAddress(socket));
 					Control.getInstance().removeMasterConnectionList(this);
 					in.close();
 				}catch (IOException e) {
 					log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
-//<<<<<<< MServer
-/*					
+
+					
 					if (this.equals(MasCommands.getBackupCon())) {
 						MasCommands.setHasBackup(false);
 						if (ServerList.getServerList().size()>0) {
@@ -139,27 +123,46 @@ public class Connection extends Thread {
 						log.info("removing child server...");
 						Control.getInstance().removeMasterConnectionList(this);
 					}
-//=======
-*/
-					Control.getInstance().removeMasterConnectionList(this);
-//>>>>>>> master
-
-/*
-        }
+				}catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 			if (Settings.getServerType().equals("b")){
 				try {
-					while(!term && (data = inreader.readLine())!=null){
+					while(!term && (msg = messageQueue.take())!=null){
+						data = msg.getMessage();
 						term=Control.getInstance().processBackUp(this,data);
 					}
-				}catch (IOException e) {
+				}catch (Exception e) {
 					log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
-//<<<<<<< MServer
-//=======
-*/
-//					Control.getInstance().removeMasterConnectionList(this);
-//>>>>>>> master
+					//if (this.equals(MasCommands.getBackupCon())) {
+						MasCommands.setHasBackup(false);
+						Settings.setServerType("m");
+						log.info("I am now new MASTER...");
+						if (ServerList.getServerList().size()>0) {
+							log.info("promoting new backup...");
+							ServerLoad sl = ServerList.getServerList().get(0);
+							Connection newBackup = sl.getCon();
+							MasCommands.setBackup(newBackup);
+							Commands.sendPromotion(newBackup);
+							MasCommands.setHasBackup(true);
+							Control.getInstance().removeMasterConnectionList(newBackup);
+						}
+					//} else {
+						//log.info("removing child server...");
+						//Control.getInstance().removeMasterConnectionList(this);
+					//}
+
+					Control.getInstance().removeMasterConnectionList(this);
+
 				}
+				/*catch (InterruptedException e){
+					log.error("connection "+Settings.socketAddress(socket)+" closed with InterruptedException: "+e);
+					Control.getInstance().removeChildConnectionList(this);
+				}*/
+					
+			}else if (Settings.getServerType().equals("b")){
+//				term=Control.getInstance().processBackUp(this,data);
 			}
 
 		open=false;
@@ -174,7 +177,6 @@ public class Connection extends Thread {
 	}
 }
 
-/*
 class MessageSend {
 	private static String msg;
 	private static Connection con;
@@ -188,22 +190,19 @@ class MessageSend {
 	public static Connection getConnection(){
 		return con;
 	}
-}*/
+}
+
 
 class MessageRecv {
 		//True if the message comes from a client, false if it comes from a thread
 	private boolean isFromClient;
 
 	private String message;
-	private static int index = 0;
-	private int thisIndex;
 	
 	public MessageRecv(boolean isFromClient, String message) {
 		//super();
 		this.isFromClient = isFromClient;
 		this.message = message;
-		index++;
-		thisIndex=index;
 	}
 	
 	public boolean isFromClient() {
@@ -212,18 +211,14 @@ class MessageRecv {
 	public String getMessage() {
 		return message;
 	}
-	
-	public int MsgIndex() {
-		return thisIndex;
-	}
 }
 
-class ClientMessageReader extends Thread {
+class MessageReader extends Thread {
 
 	private BufferedReader reader; 
 	private BlockingQueue<MessageRecv> messageQueue;
 	
-	public ClientMessageReader(BufferedReader reader, BlockingQueue<MessageRecv> messageQueue) {
+	public MessageReader(BufferedReader reader, BlockingQueue<MessageRecv> messageQueue) {
 		this.reader = reader;
 		this.messageQueue = messageQueue;
 	}
@@ -262,7 +257,3 @@ class ClientMessageReader extends Thread {
 		}
 	}
 }
-//<<<<<<< MServer
-//=======
-//*/
-//>>>>>>> master
