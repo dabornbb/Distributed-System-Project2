@@ -20,7 +20,7 @@ public class Settings {
 	private static String secret = null;
 	private static String username = "anonymous";
 	private static String serverId;
-	private static String serverType="c"; // default as child server
+	private static String serverType=null; // default as child server
 	
 	public static int getLocalPort() {
 		return localPort;

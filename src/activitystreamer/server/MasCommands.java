@@ -1,9 +1,9 @@
 package activitystreamer.server;
 
 import java.util.ArrayList;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.sql.Timestamp;
+import java.net.Socket;
+import java.io.IOException;
 
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
@@ -13,7 +13,6 @@ import activitystreamer.util.Settings;
 
 public class MasCommands {
 	static ArrayList<User> registeredUsers = new ArrayList<User>();
-	static BlockingQueue<RegMsg> registrationQueue = new LinkedBlockingQueue<RegMsg>();
 	private static Timestamp time = null;
 	
 	// set master server connection for backup server 
@@ -21,11 +20,16 @@ public class MasCommands {
 	private static Connection backupCon = null;
 	private static boolean hasBackup = false;
 	
+	public static boolean isMaster(Connection con) {
+		return masCon.equals(con);
+	}
+	public static boolean isBackup(Connection con) {
+		return backupCon.equals(con);
+	}
 	public static boolean getHasBackup () {
 		return hasBackup;
 	}
-
-
+	
 	public static void setHasBackup (boolean b) {
 		hasBackup = b;
 	}
@@ -33,11 +37,17 @@ public class MasCommands {
 	public static void setBackup (Connection con) {
 		backupCon = con;
 	}
-
-
 	
 	public static Connection getBackupCon () {
 		return backupCon;
+	}
+	
+	public static Connection getMasterCon () {
+		return masCon;
+	}
+	
+	public static void setMasterCon (Connection con) {
+		masCon = con;
 	}
 	
 	public static ArrayList getUserList () {
@@ -50,11 +60,7 @@ public class MasCommands {
 				String serversecret = obj.get("secret").toString();
 				if (serversecret.equals(Settings.getSecret())) {
 					if (hasBackup) {
-						String hostname=obj.get("hostname").toString();
-						int port = Integer.parseInt(obj.get("portnum").toString());
-						String id = obj.get("id").toString();
-						ServerList.addServer(con,id,hostname,port);
-						ServerList.sortServerList_byLoad_fromLowest_toHighest();
+						ServerList.addServer(con);
 						time = new Timestamp(System.currentTimeMillis());
 						System.out.println(time.getTime());
 						Commands.AuthenSuccess(con, time);
@@ -66,6 +72,7 @@ public class MasCommands {
 						System.out.println(time.getTime());
 						Commands.AuthenSuccess(con, time);
 						Commands.sendPromotion(con);
+						ServerList.deleteServer(con);
 						return false;
 					}
 				}else {
@@ -83,6 +90,10 @@ public class MasCommands {
 	}
 	
 	public static boolean Register(Connection con,JSONObject obj) {
+		if(ServerList.isNewServer(con)) {
+			Commands.invalidMsg(con, "Server Not in Group");
+			return true;
+		}
 		try {
 			String username=obj.get("username").toString();
 			if (isRegistered(username)) {
@@ -96,31 +107,18 @@ public class MasCommands {
 			
 		}catch(NullPointerException e) {
 			Commands.invalidMsg(con, e+": Incomplete Register Information");
-		}catch(Exception e) {
-			e.printStackTrace();
 		}
 		
 		return false;
 	}
 	
 	public static boolean Login(Connection con, JSONObject obj) {
+		if(ServerList.isNewServer(con)) {
+			Commands.invalidMsg(con, "Server Not in Group");
+			return true;
+		}
 		try {
 			String username=obj.get("username").toString();
-			if (username.equals("anonymous")) {
-				try {
-					String id = obj.get("server_id").toString();
-					ServerLoad server = ServerList.redirectTo(id);
-					if (server!=null) {
-						Commands.redirect(con, server.getHostname(), server.getPort(),obj);
-					}else {
-						time = new Timestamp(System.currentTimeMillis());
-						Commands.loginSuccess(con, obj);
-					}
-				}catch(NullPointerException e) {
-					e.printStackTrace();
-				}
-				return false;
-			}
 			if (!isRegistered(username)) {
 				Commands.loginFail(con, "User not registered in the system",obj);
 			}else {
@@ -136,8 +134,7 @@ public class MasCommands {
 				//registered and correct secret
 				if (secret.equals(getSecret(username))){
 					// at successful login, run redirection
-					String id = obj.get("server_id").toString();
-					ServerLoad server = ServerList.redirectTo(id);
+					ServerLoad server = ServerList.redirectTo(con);
 					if (server!=null) {
 						Commands.redirect(con, server.getHostname(), server.getPort(),obj);
 					}else {
@@ -154,13 +151,14 @@ public class MasCommands {
 		return false;
 	}
 	
-	public static boolean deliverList(Connection con,JSONObject sendObj) {
+	public static boolean deliverList(Connection con) {
 		if(ServerList.isNewServer(con)) {
 			Commands.invalidMsg(con, "Server Not in Group");
 			return true;
 		}
 		JSONArray list = new JSONArray();
 		int listsize = ServerList.length();
+		JSONObject sendObj = new JSONObject();
 		sendObj.put("command", "CONTACT_LIST");
 		sendObj.put("size", listsize);
 		if (listsize!=0) {
@@ -182,6 +180,10 @@ public class MasCommands {
 		}else if(!ServerList.isNewServer(con)) {
 			ServerList.update(con, obj);
 			ServerList.sortServerList_byLoad_fromLowest_toHighest();
+			return false;
+		}else if(con.equals(backupCon)) {
+			//System.out.println("there are online users in backup that are not redirected yet");
+			//System.out.println("backup: "+obj.toString());
 			return false;
 		}
 		return !Commands.invalidMsg(con, "unauthenticated server");
@@ -210,7 +212,6 @@ public class MasCommands {
 	public static int getNumOfChild() {
 		return ServerList.length();
 	}
-
 	public static void updateServerList(JSONObject recvObj) {
 		ArrayList <ServerLoad> svr = new ArrayList();
 		JSONArray arr = (JSONArray) recvObj.get("server list");
@@ -227,6 +228,7 @@ public class MasCommands {
 			svr.add(sl);
 			System.out.println("added to server list: "+sl.objToString());
 		}	
+		ServerList.setServerList(svr);
 	}
 	public static void updateUserList(JSONObject recvObj) {
 		ArrayList <User> usr = new ArrayList();
@@ -241,42 +243,32 @@ public class MasCommands {
 			usr.add(u);
 			System.out.println("added to user list: "+u.objToString());
 		}	
+		registeredUsers = usr;
 	}
-}
-
-class RegMsg{
-	Connection con;
-	JSONObject obj;
-	public RegMsg(Connection con,JSONObject obj) {
-		this.con = con;
-		this.obj = obj;
-	}
-	
-	public Connection getCon() {
-		return this.con;
-	}
-	public JSONObject getObj(){
-		return this.obj;
-	}
-	
-}
-class RegProcessor extends Thread{
-	BlockingQueue<RegMsg> queue;
-	RegMsg msg;
-	public RegProcessor(BlockingQueue<RegMsg> q) {
-		this.queue = q;
-	}
-	
-	@Override
-	public void run() {
-
+	public static void contactChildServer(ServerLoad sl) {
 		try {
-			while(true) {
-				msg = queue.take();
-				MasCommands.Register(msg.getCon(), msg.getObj());
-			}
-		}catch(Exception e) {
-			e.printStackTrace();
+			Connection con = Control.getInstance().outgoingConnection(new Socket(sl.getHostname(),sl.getPort()));
+			Commands.sendMasterBroadcast(con);
+			//Control.getInstance().removeMasterConnectionList(con);
+		} catch (IOException e) {
+			
 		}
 	}
+	// this method is used by newly promoted to redirect all online users to other child servers
+	public static void redirectAllOnlineUsers() {
+		int indexC = 0, indexS = 0;
+		int numOfClients = ChildCommands.onlineLength();
+		int numOfServers = ServerList.getServerList().size();
+		while (indexC<numOfClients && indexS<numOfServers) {
+			ServerLoad sl = ServerList.getServerList().get(indexS);
+			OnlineUser ou = ChildCommands.getOnlineUsers().get(indexC);
+			JSONObject obj = new JSONObject();
+			Commands.redirect(ou.getCon(), sl.getHostname(), sl.getPort(), obj);
+			indexC++;
+			indexS++;
+			if (indexS>=numOfServers) 
+				indexS = 0;
+		}
+ 	}
 }
+

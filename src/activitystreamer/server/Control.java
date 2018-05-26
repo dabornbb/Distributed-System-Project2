@@ -2,6 +2,7 @@ package activitystreamer.server;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.ArrayList;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,6 +13,12 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import org.json.simple.JSONObject;
+import org.json.simple.JSONArray;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -22,7 +29,9 @@ public class Control extends Thread {
 	private static Listener listener;
 	private JSONParser parser = new JSONParser();
 	protected static Control control = null;
-	private RegProcessor regProcess;
+	private BlockingQueue<JSONObject> messageQueueSend;
+	private BlockingQueue<JSONObject> messageQueueRecv;
+
 	public static Control getInstance() {
 		if(control==null){
 			control=new Control();
@@ -32,16 +41,12 @@ public class Control extends Thread {
 	
 	public Control() {
 		Settings.setServerId();
-		// set the first child server as backup server
-		if (!Settings.getServerType().equals("m")) {
-		}
-		
+		messageQueueRecv=new LinkedBlockingQueue<JSONObject>();
+		// set the first child server as backup server		
 		if (Settings.getServerType().equals("c")) {
 			System.out.println("[TYPE] Child Server");
 		}else if (Settings.getServerType().equals("m")){
 			System.out.println("[TYPE] Master Server");
-			regProcess = new RegProcessor(MasCommands.registrationQueue);
-			regProcess.start();
 		}else if (Settings.getServerType().equals("b")){
 			System.out.println("[TYPE] Backup Server");
 		} else {
@@ -74,45 +79,56 @@ public class Control extends Thread {
 		return null;
 	}
 	
+	public Connection initiateConnectionToNewMaster(String hostname, int port){
+		// make a connection to another server if remote hostname is supplied
+		Settings.setRemoteHostname(hostname);
+		Settings.setRemotePort(port);
+		if(Settings.getRemoteHostname()!=null){
+			try {
+				log.info("Starting connection to new master server at "+hostname + " , "+ port);
+				Connection con = outgoingConnection(new Socket(Settings.getRemoteHostname(),Settings.getRemotePort()));
+				ChildCommands.sendAuthenticate(con);
+				return con;
+			} catch (IOException e) {
+				log.error("failed to make connection to "+Settings.getRemoteHostname()+":"+Settings.getRemotePort()+" :"+e);
+				System.exit(-1);
+			}
+		}
+		return null;
+	}
+	
 	/*
 	 * Processing incoming messages from the connection.
 	 * Return true if the connection should close.
 	 */
 	public synchronized boolean processMas(Connection con,String msg){
 		JSONObject obj;
-		log.debug("message received: "+msg);
 		boolean term;
 		try {
 			obj = (JSONObject) parser.parse(msg);
 			String cmd = obj.get("command").toString();
-			System.out.println("[RECEIVED]" + msg);
+			//System.out.println("[RECEIVED]" + msg);
 			term = false;
-			if (cmd.equals("AUTHENTICATE")) {
-				term = MasCommands.Authenticate(con, obj);
-			}else if(ServerList.isNewServer(con)) {
-				Commands.invalidMsg(con, "Server Not in Group");
-				term = true;
-			}else {
-				switch (cmd) {
-					case "REGISTER":
-						MasCommands.registrationQueue.add(new RegMsg(con,obj));
-						break;
-					case "LOGIN":
-						term = MasCommands.Login(con, obj);
-						break;
-					case "AUTHENTICATE":
-						break;
-					case "BROADCAST_REQUEST":
-						term = MasCommands.deliverList(con,obj);
-						break;
-					case "UPDATE_LOAD":
-						term = MasCommands.updateLoad(con,obj);
-						break;
-					default: 
-						Commands.invalidMsg(con,"unknown commands");
-						term = true;
-						break;
-				}
+			switch (cmd) {
+				case "REGISTER":
+					term = MasCommands.Register(con,obj);
+					break;
+				case "LOGIN":
+					term = MasCommands.Login(con, obj);
+					break;
+				case "AUTHENTICATE":
+					term = MasCommands.Authenticate(con, obj);
+					break;
+				case "BROADCAST_REQUEST":
+					term = MasCommands.deliverList(con);
+					break;
+				case "UPDATE_LOAD":
+					term = MasCommands.updateLoad(con,obj);
+					break;
+				default: 
+					Commands.invalidMsg(con,"unknown commands");
+					term = true;
+					break;
 			}
 		} catch (ParseException e1) {
 			log.error("invalid JSON object received at server, data is not processed");
@@ -122,7 +138,7 @@ public class Control extends Thread {
 	}
 
 	public synchronized boolean processChild(Connection con, String msg) {
-		log.debug("Calling child process");
+		//log.debug("Calling child process");
 		JSONObject obj;
 		boolean term;
 		try {
@@ -133,6 +149,7 @@ public class Control extends Thread {
 			switch (cmd) {
 			case "AUTHENTICATION_SUCCESS":
 				ChildCommands.setTimeInterval(obj);
+				ChildCommands.setMasterConnection(con);
 				break;
 			case "REGISTER":
 				ChildCommands.client2MServer(con,obj);
@@ -164,16 +181,17 @@ public class Control extends Thread {
 				log.debug("term true due to logout");
 				break;
 			case "PROMOTION":
-				ChildCommands.promoteToNewRank(obj);
+				ChildCommands.promoteToNewRank(con, obj);
+				MasCommands.setMasterCon(con);
 				break;
-			case "ACTIVITY_MESSAGE":	
-				ChildCommands.getServerList(con,obj);
+			case "NEW_MASTER":
+				ChildCommands.contactNewMaster(con, obj);
 				break;
-			case "CONTACT_LIST":
-				ChildCommands.broadcastMsg(obj);			
-				break;
-			case "ACTIVITY_BROADCAST":
-				ChildCommands.broadcast2Clients(obj);
+			case "ACTIVITY_MESSAGE":
+				// retrieve the up-to-date list of child servers from master server
+				
+				// broadcast Message to all other child servers
+				
 				break;
 			default: 
 				Commands.invalidMsg(con,"unknown commands");
@@ -187,7 +205,6 @@ public class Control extends Thread {
 		}
 		return term;
 	}
-
 	public synchronized boolean processBackUp(Connection con,String msg){
 		log.debug("Calling backup process");
 		JSONObject obj;
@@ -195,17 +212,19 @@ public class Control extends Thread {
 		try {
 			obj = (JSONObject) parser.parse(msg);
 			String cmd = obj.get("command").toString();
-			System.out.println("[RECEIVED]" + msg);
 			term = false;
 			switch (cmd) {
 				case "SYNC_DATA":
 					MasCommands.updateServerList(obj);
 					MasCommands.updateUserList(obj);
-					log.info("data synced");
+					if (ChildCommands.onlineLength()>0) {
+						MasCommands.redirectAllOnlineUsers();
+					}
+					log.info("[BACKUP DATA received from MASTER]: " + msg);
 					break;
 				default: 
 					Commands.invalidMsg(con,"unknown commands");
-					log.debug("term true due to invalid message");
+					//log.debug("term true due to invalid message");
 					term = true;
 					break;
 			}
@@ -215,9 +234,6 @@ public class Control extends Thread {
 		}
 		return term;
 	}
-
-	
-	
 	/*
 	 * The connection has been closed by the other party. -> ChildServer
 	 */
@@ -263,8 +279,7 @@ public class Control extends Thread {
 	public synchronized Connection outgoingConnection(Socket s) throws IOException{
 		log.debug("outgoing connection: "+Settings.socketAddress(s));
 		Connection c = new Connection(s);
-		return c;
-		
+		return c;	
 	}
 	
 	@Override
@@ -277,19 +292,20 @@ public class Control extends Thread {
 					// do something with 5 second intervals in between
 			try {
 				Thread.sleep(Settings.getActivityInterval());
-				if (Settings.getServerType().equals("m"))
-					log.info("total server connections (excluding backup): "+ServerList.length());
-				else if (Settings.getServerType().equals("c")) 
-					log.info("total client connections: "+ChildCommands.onlineLength());
-				/*
-				if (count<6)
-					count++;
-				else {
-					log.info("Backup interval: "+ (count*5) + " seconds");
-					count=0;
-					Commands.backupMasterData();
+				if (Settings.getServerType().equals("c")) {
+					Commands.updateLoad(ChildCommands.getMasCon(), Settings.getServerId(), ChildCommands.onlineLength());
 				}
-				*/
+				if (Settings.getServerType().equals("m")) {
+					if (count<6)
+						count++;
+					else {
+						if (MasCommands.getHasBackup()) {
+							Commands.backupMasterData();
+							log.info("Backup interval: "+ (count*5) + " seconds");
+						}
+						count=0;
+					}
+				}				
 			} catch (InterruptedException e) {
 				log.info("received an interrupt, system is shutting down");
 				break;

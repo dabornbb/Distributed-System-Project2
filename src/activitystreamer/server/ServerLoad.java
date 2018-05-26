@@ -4,7 +4,7 @@ import org.json.simple.JSONObject;
 
 public class ServerLoad implements Comparable<ServerLoad>{
 	private String id = null;
-	private int load = 0;
+	private int load = 100000000;
 	private Connection con;
 	private int port = -1;
 	private String hostname = null;
@@ -13,14 +13,12 @@ public class ServerLoad implements Comparable<ServerLoad>{
 		setCon(con);
 	}
 	
-	ServerLoad(Connection con, String id, String hostname,int port){
+	ServerLoad(Connection con, String hostname,int port){
 		setCon(con);
 		setHostname(hostname);
 		setPort(port);
-		setId(id);
 	}
-
-
+	
 	ServerLoad(Connection con, String i, String h,int p, int l){
 		setCon(con);
 		setId(i);
@@ -36,8 +34,6 @@ public class ServerLoad implements Comparable<ServerLoad>{
 		obj.put("port", port);
 		return obj;
 	}
-
-
 	
 	public void setId(String id) {
 		this.id = id;

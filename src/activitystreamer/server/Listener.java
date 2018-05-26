@@ -16,6 +16,7 @@ public class Listener extends Thread{
 	private int portnum;
 	
 	public Listener() throws IOException{
+		System.out.println("accessed listener.Listener");
 		portnum = Settings.getLocalPort(); // keep our own copy in case it changes later
 		serverSocket = new ServerSocket(portnum);
 		start();
@@ -23,6 +24,7 @@ public class Listener extends Thread{
 	
 	@Override
 	public void run() {
+		System.out.println("accessed listener.run");
 		log.info("listening for new connections on "+portnum);
 		while(!term){
 			Socket clientSocket;
@@ -37,6 +39,7 @@ public class Listener extends Thread{
 	}
 
 	public void setTerm(boolean term) {
+		System.out.println("accessed listener.setTerm");
 		this.term = term;
 		if(term) interrupt();
 	}

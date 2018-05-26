@@ -10,10 +10,13 @@ import java.util.ArrayList;
 public class ServerList {
 	public static ArrayList<ServerLoad> serverList= new ArrayList<ServerLoad>();
 	private static int serverat = 0;
-
-
+	
 	public static ArrayList<ServerLoad> getServerList() {
 		return serverList;
+	}
+	
+	public static void setServerList(ArrayList<ServerLoad>  arr) {
+		serverList = arr;
 	}
 	
 	public static void update(String id, JSONObject obj,Connection con) {
@@ -64,9 +67,11 @@ public class ServerList {
 	public static boolean isNewServer(Connection con) {
 		serverat = 0;
 		for (ServerLoad server : serverList) {
-			if (server.getCon().equals(con))
-				return false;
-			serverat++;
+			if (server.getCon()!=null) {
+				if (server.getCon().equals(con))
+					return false;
+				serverat++;
+			}
 		}
 		return true;
 	}
@@ -87,8 +92,11 @@ public class ServerList {
 	}
 	
 	
-	public static void addServer(Connection con, String id,String hostname, int port) {
-		serverList.add(new ServerLoad(con,id,hostname,port));
+	public static void addServer(Connection con, String hostname, int port) {
+		ServerLoad server = new ServerLoad(con);
+		server.setHostname(hostname);;
+		server.setPort(port);
+		serverList.add(server);
 	}
 	
 	public static void addServer(Connection con) {
@@ -98,12 +106,19 @@ public class ServerList {
 	public static void deleteServer(Connection con) {
 		if (!isNewServer(con)) serverList.remove(serverat);
 	}
+	
+	public static void deleteServerByIndex(int index) {
+		serverList.remove(index);
+	}
 
-	public static ServerLoad redirectTo(String id) {
-		// if the first server in list is the server itself, return null, else return the server
-		if (serverList.get(0).getId().equals(id))
-			return null;
-		return serverList.get(0);
+	public static ServerLoad redirectTo(Connection con) {
+		int thisload = getLoad(con);
+		for (ServerLoad sl:serverList) {
+			if (sl.getLoad()<=(thisload-2)) {
+				return sl;
+			}
+		}
+		return null;
 	}
 	
 	private static int getLoad(Connection con) {

@@ -2,12 +2,9 @@ package activitystreamer.util;
 
 import activitystreamer.server.Connection;
 import activitystreamer.server.ServerList;
-import java.util.ArrayList;
-
-import activitystreamer.server.*;
+import activitystreamer.server.MasCommands;
 import activitystreamer.server.ServerLoad;
 import activitystreamer.server.User;
-
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -15,6 +12,7 @@ import org.json.simple.parser.ParseException;
 import org.json.simple.JSONArray;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 
 public class Commands {
 
@@ -42,14 +40,13 @@ public class Commands {
 	}
 
 	// Data sync between master and backup servers
-
 	public static void backupMasterData (){
 		Connection con = MasCommands.getBackupCon();
 		sendObj = new  JSONObject();
 		JSONArray usr = new JSONArray();
 		JSONArray svr = new JSONArray();
 		
-		ArrayList<User> tempu = MasCommands.getUserList();
+		ArrayList <User> tempu = MasCommands.getUserList();
 		for (int i=0; i<tempu.size(); i++) {
 			User u = tempu.get(i);
 			usr.add(u.objToString());
@@ -65,7 +62,9 @@ public class Commands {
 		sendObj.put("info", "Master syncs data with backup every 30s");
 		sendObj.put("user list", usr);
 		sendObj.put("server list", svr);
-	}
+		con.writeMsg(sendObj.toJSONString());
+		System.out.println ("Data sync to backup: " + sendObj.toString());
+	}		
 	
 	public static boolean invalidMsg(Connection con,String str) {
 		sendObj = new JSONObject();
@@ -122,15 +121,22 @@ public class Commands {
 		obj.put("info", obj.get("username").toString()+" is already registered in the system");
 		con.writeMsg(obj.toJSONString());
 	}
+
+/*	public static void serverAnnounce(Connection con,String id,int load,String hostname,int port) {
+		sendObj = new JSONObject();
+		sendObj.put("command", "SERVER_ANNOUNCE");
+		sendObj.put("id",id);
+		sendObj.put("load", load);
+		sendObj.put("hostname",hostname);
+		sendObj.put("port", port);
+		con.writeMsg(sendObj.toJSONString());
+	}
+	*/
 	
-	
-	public static void sendAuthenticate(Connection con,String id,String hostname, int portnum) {
+	public static void sendAuthenticate(Connection con) {
 		sendObj = new JSONObject();
 		sendObj.put("command", "AUTHENTICATE");
 		sendObj.put("secret", Settings.getSecret());
-		sendObj.put("id", id);
-		sendObj.put("hostname", hostname);
-		sendObj.put("portnum", portnum);
 		con.writeMsg(sendObj.toJSONString());
 	}
 	
@@ -153,6 +159,8 @@ public class Commands {
 		sendObj.put("command", "UPDATE_LOAD");
 		sendObj.put("id", id);
 		sendObj.put("load", load);
+		sendObj.put("hostname",Settings.getLocalHostname());
+		sendObj.put("port", Settings.getLocalPort());
 		con.writeMsg(sendObj.toJSONString());
 	}
 }
