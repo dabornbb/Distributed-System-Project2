@@ -24,7 +24,7 @@ public class Client {
 		System.exit(-1);
 	}
 	
-	public static void main(String[] args) throws InterruptedException {
+	public static void main(String[] args) {
 		
 		log.info("reading command line options");
 		
@@ -33,6 +33,7 @@ public class Client {
 		options.addOption("rp",true,"remote port number");
 		options.addOption("rh",true,"remote hostname");
 		options.addOption("s",true,"secret for username");
+		
 		
 		// build the parser
 		CommandLineParser parser = new DefaultParser();
@@ -68,9 +69,11 @@ public class Client {
 		
 		
 		log.info("starting client");
-                
-//                Settings.setRemotePort(8003);
-//                Settings.setRemoteHostname("127.0.0.1");
+		
+		
+		
+		
+			
 		ClientSkeleton c = ClientSkeleton.getInstance(); 
 				
 		

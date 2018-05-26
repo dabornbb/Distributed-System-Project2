@@ -1,0 +1,1 @@
+java -classpath activitystreamer\client;activitystreamer\server;activitystreamer\util;.;..\lib\*;..\lib\apache-log4j-2.5-bin\*;..\lib\commons-cli-1.3.1\*; activitystreamer.Client -u user1 -s rrqau3ecfkeou1mvqsrqd7svso -rp 8003 -rh localhost
