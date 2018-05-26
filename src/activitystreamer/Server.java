@@ -92,6 +92,8 @@ public class Server {
 		// Set master server
 		if(!cmd.hasOption("rh") && !cmd.hasOption("rp") ){
 			Settings.setServerType("m");
+		} else {
+			Settings.setServerType("c");
 		}
 		
 		if(cmd.hasOption("lh")){

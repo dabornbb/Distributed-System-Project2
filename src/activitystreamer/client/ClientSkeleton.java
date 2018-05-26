@@ -116,7 +116,8 @@ public class ClientSkeleton extends Thread {
 						System.out.println("Logged out because of register failure");
 						break;
 					case "REDIRECT":
-						disconnect();
+						textFrame.setVisible(false);
+						textFrame.dispose();
 						System.out.println("System reaching redirection");
 						redirection(obj);
 						break;
@@ -182,6 +183,7 @@ public class ClientSkeleton extends Thread {
 
 	private void redirection(JSONObject obj){
 		System.out.println("[ACCESS] accessing clientSkeleton.Redirection...");
+		disconnect();
 		Settings.setRemoteHostname(obj.get("hostname").toString());
 		Settings.setRemotePort(Integer.parseInt(obj.get("port").toString()));
 		initSocket();

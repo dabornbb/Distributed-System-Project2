@@ -16,9 +16,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import activitystreamer.util.Settings;
-
 import activitystreamer.util.Commands;
-
 
 public class Connection extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -29,14 +27,14 @@ public class Connection extends Thread {
 	private boolean open = false;
 	private Socket socket;
 	private boolean term=false;
-	private BlockingQueue<MessageRecv> messageQueue;
+	//private BlockingQueue<MessageRecv> messageQueue;
 	
 	Connection(Socket socket) throws IOException{
 		in = new DataInputStream(socket.getInputStream());
 	    out = new DataOutputStream(socket.getOutputStream());
 	    inreader = new BufferedReader( new InputStreamReader(in));
 	    outwriter = new PrintWriter(out, true);
-		messageQueue = new LinkedBlockingQueue<MessageRecv>();
+		//messageQueue = new LinkedBlockingQueue<MessageRecv>();
 	    this.socket = socket;
 	    open = true;
 	    start();
@@ -74,39 +72,34 @@ public class Connection extends Thread {
 			
 			String data;
 
-			MessageRecv msg;
-			MessageReader messageReader = new MessageReader(inreader, messageQueue);
-			messageReader.setName(this.getName() + "Reader");
-			messageReader.start();
 			if (Settings.getServerType().equals("c")) {
 				try {
-					while(!term && (msg = messageQueue.take())!=null){
-						data = msg.getMessage();
+					while(!term && (data = inreader.readLine())!=null){
 						term=Control.getInstance().processChild(this,data);
-					
+						if (Settings.getServerType().equals("b"))
+							break;
 					}
-					log.debug("connection closed to "+Settings.socketAddress(socket));
-					Control.getInstance().removeChildConnectionList(this);
-					in.close();
-				}catch (IOException e) {
-					log.error("connection "+Settings.socketAddress(socket)+" closed with IOException: "+e);
-					Control.getInstance().removeChildConnectionList(this);
+					if (!Settings.getServerType().equals("b")) {
+						log.debug("connection closed to "+Settings.socketAddress(socket));
+						Control.getInstance().removeChildConnectionList(this);
+						in.close();
+					}					
+				//}catch (IOException e) {
 				}catch (Exception e) {
-					e.printStackTrace();
+					log.error("connection "+Settings.socketAddress(socket)+" closed with IOException: "+e);
+					//Control.getInstance().removeChildConnectionList(this);
 				}
 			}else if (Settings.getServerType().equals("m")){
 				try {
-					while(!term && (msg = messageQueue.take())!=null){
-						data = msg.getMessage();
-
+					while(!term && (data = inreader.readLine())!=null){
 						term=Control.getInstance().processMas(this,data);
 					}
 					log.debug("connection closed to "+Settings.socketAddress(socket));
 					Control.getInstance().removeMasterConnectionList(this);
 					in.close();
-				}catch (IOException e) {
+				//}catch (IOException e) {
+				}catch (Exception e) {
 					log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
-
 					
 					if (this.equals(MasCommands.getBackupCon())) {
 						MasCommands.setHasBackup(false);
@@ -117,52 +110,36 @@ public class Connection extends Thread {
 							MasCommands.setBackup(newBackup);
 							Commands.sendPromotion(newBackup);
 							MasCommands.setHasBackup(true);
-							Control.getInstance().removeMasterConnectionList(newBackup);
+							ServerList.deleteServer(newBackup);
 						}
 					} else {
 						log.info("removing child server...");
 						Control.getInstance().removeMasterConnectionList(this);
 					}
-				}catch (Exception e) {
-					e.printStackTrace();
 				}
 			}
 			if (Settings.getServerType().equals("b")){
 				try {
-					while(!term && (msg = messageQueue.take())!=null){
-						data = msg.getMessage();
+					while(!term && (data = inreader.readLine())!=null){
 						term=Control.getInstance().processBackUp(this,data);
 					}
+				//}catch (IOException e) {
 				}catch (Exception e) {
 					log.error("connection "+Settings.socketAddress(socket)+" closed with exception: "+e);
-					//if (this.equals(MasCommands.getBackupCon())) {
+					if (MasCommands.isMaster(this)) {
 						MasCommands.setHasBackup(false);
 						Settings.setServerType("m");
 						log.info("I am now new MASTER...");
-						if (ServerList.getServerList().size()>0) {
-							log.info("promoting new backup...");
+						while (ServerList.getServerList().size()>0) {
+							log.info("contacting all child servers...");
 							ServerLoad sl = ServerList.getServerList().get(0);
-							Connection newBackup = sl.getCon();
-							MasCommands.setBackup(newBackup);
-							Commands.sendPromotion(newBackup);
-							MasCommands.setHasBackup(true);
-							Control.getInstance().removeMasterConnectionList(newBackup);
+							MasCommands.contactChildServer(sl);
+							ServerList.deleteServerByIndex(0);
 						}
-					//} else {
-						//log.info("removing child server...");
-						//Control.getInstance().removeMasterConnectionList(this);
-					//}
-
-					Control.getInstance().removeMasterConnectionList(this);
-
+					} else {
+						log.info("closing all users due to change of functions...");
+					}
 				}
-				/*catch (InterruptedException e){
-					log.error("connection "+Settings.socketAddress(socket)+" closed with InterruptedException: "+e);
-					Control.getInstance().removeChildConnectionList(this);
-				}*/
-					
-			}else if (Settings.getServerType().equals("b")){
-//				term=Control.getInstance().processBackUp(this,data);
 			}
 
 		open=false;
@@ -174,86 +151,5 @@ public class Connection extends Thread {
 	
 	public boolean isOpen() {
 		return open;
-	}
-}
-
-class MessageSend {
-	private static String msg;
-	private static Connection con;
-	public MessageSend (String m, Connection c){
-		msg = m;
-		con = c;
-	}
-	public static String getMessage(){
-		return msg;
-	}
-	public static Connection getConnection(){
-		return con;
-	}
-}
-
-
-class MessageRecv {
-		//True if the message comes from a client, false if it comes from a thread
-	private boolean isFromClient;
-
-	private String message;
-	
-	public MessageRecv(boolean isFromClient, String message) {
-		//super();
-		this.isFromClient = isFromClient;
-		this.message = message;
-	}
-	
-	public boolean isFromClient() {
-		return isFromClient;
-	}
-	public String getMessage() {
-		return message;
-	}
-}
-
-class MessageReader extends Thread {
-
-	private BufferedReader reader; 
-	private BlockingQueue<MessageRecv> messageQueue;
-	
-	public MessageReader(BufferedReader reader, BlockingQueue<MessageRecv> messageQueue) {
-		this.reader = reader;
-		this.messageQueue = messageQueue;
-	}
-	
-	@Override
-	//This thread reads messages from the client's socket input stream
-	public void run() {
-		try {
-			
-			System.out.println(Thread.currentThread().getName() 
-					+ " - Reading messages from client connection");
-			
-			String clientMsg = null;
-			while ((clientMsg = reader.readLine()) != null) {
-				System.out.println(Thread.currentThread().getName() 
-						+ " - Message from client received: " + clientMsg);
-				//place the message in the queue for the client connection thread to process
-				MessageRecv msg = new MessageRecv(true, clientMsg);
-				messageQueue.add(msg);
-			}
-			
-			//If the end of the stream was reached, the client closed the connection
-			//Put the exit message in the queue to allow the client connection thread to 
-			//close the socket
-			MessageRecv exit = new MessageRecv(false, "exit");
-			messageQueue.add(exit);
-			
-		} catch (SocketException e) {
-			//In some platforms like windows, when the end of stream is reached, instead
-			//of returning null, the readLine method throws a SocketException, so 
-			//do whatever you do when the while loop ends here as well
-			MessageRecv exit = new MessageRecv(false, "exit");
-			messageQueue.add(exit);		
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 	}
 }
